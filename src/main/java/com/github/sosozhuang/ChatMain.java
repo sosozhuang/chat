@@ -40,9 +40,6 @@ public final class ChatMain {
                     LOGGER.error("Close message service error.", e);
                 }
                 LOGGER.info("Chat service stopped.");
-                synchronized (ChatMain.class) {
-                    ChatMain.class.notify();
-                }
             }));
             server.start();
         } catch (Exception e) {
