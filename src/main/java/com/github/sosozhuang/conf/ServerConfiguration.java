@@ -61,4 +61,16 @@ public class ServerConfiguration {
     public long getExecutorScheduleRate(long defaultValue) {
         return config.getLong("server.executor.schedule_rate", defaultValue);
     }
+
+    public long getIdleTimeout() {
+        return getIdleTimeout(0);
+    }
+    public long getIdleTimeout(long defaultValue) {
+        return config.getLong("server.idle_timeout", defaultValue);
+    }
+
+    @Override
+    public String toString() {
+        return config.toString();
+    }
 }
