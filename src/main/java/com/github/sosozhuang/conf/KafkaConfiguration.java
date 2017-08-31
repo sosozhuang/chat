@@ -13,18 +13,25 @@ public class KafkaConfiguration {
         return config.getString("kafka.servers", defaultValue);
     }
 
+    public boolean getTopicCreate() {
+        return getTopicCreate(false);
+    }
+    public boolean getTopicCreate(boolean defaultValue) {
+        return config.getBoolean("kafka.topic.create", defaultValue);
+    }
+
     public String getTopicPattern() {
         return getTopicPattern(null);
     }
     public String getTopicPattern(String defaultValue) {
-        return config.getString("kafka.topic_pattern", defaultValue);
+        return config.getString("kafka.topic.pattern", defaultValue);
     }
 
     public String getConsumerGroupId() {
         return getConsumerGroupId(null);
     }
     public String getConsumerGroupId(String defaultValue) {
-        return config.getString("kafka.consumer.default_id", defaultValue);
+        return config.getString("kafka.consumer.group_id", defaultValue);
     }
 
     public long getConsumerPollTimeout() {
