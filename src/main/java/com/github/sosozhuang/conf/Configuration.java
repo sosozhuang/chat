@@ -1,7 +1,5 @@
 package com.github.sosozhuang.conf;
 
-import com.github.sosozhuang.ChatroomServer;
-
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,7 +47,7 @@ public final class Configuration {
         return getString(key, null);
     }
     public String getString(String key, String defaultValue) {
-        return params.getOrDefault("", defaultValue);
+        return params.getOrDefault(key, defaultValue);
     }
 
     public int getInteger(String key) {
