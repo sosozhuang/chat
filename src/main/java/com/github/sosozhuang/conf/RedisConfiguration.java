@@ -61,4 +61,19 @@ public class RedisConfiguration {
     public long getMaxWait(long defaultValue) {
         return config.getLong("redis.max_wait", defaultValue);
     }
+
+    public String getKeyPrefix() {
+        return getKeyPrefix(null);
+    }
+    public String getKeyPrefix(String defaultValue) {
+        return config.getString("redis.key_prefix", defaultValue);
+    }
+
+    public String getKeySeperator() {
+        return getKeySeperator(null);
+    }
+    public String getKeySeperator(String defaultValue) {
+        return config.getString("redis.key_seperator", defaultValue);
+    }
+
 }
