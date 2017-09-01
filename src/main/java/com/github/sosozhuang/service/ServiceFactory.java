@@ -7,10 +7,10 @@ import io.netty.util.internal.StringUtil;
 
 public class ServiceFactory {
     private ServiceFactory() {}
-    public static MessageService createMessageService(Configuration config) throws UnsupportedException {
+    public static CloseableMessageService createMessageService(Configuration config) throws UnsupportedException {
         String type = config.getString("message.service");
         if (StringUtil.isNullOrEmpty(type)) {
-            throw new UnsupportedException("Message service type is empty.");
+            throw new IllegalArgumentException("Message service type is empty.");
         }
 
         switch (type.trim().toLowerCase()) {
@@ -18,15 +18,15 @@ public class ServiceFactory {
                 KafkaConfiguration kafkaConf = new KafkaConfiguration(config);
                 return new KafkaMessageService(kafkaConf);
             default:
-                throw new UnsupportedException("Message service type [" + type + "] is not supported");
+                throw new UnsupportedException("Message service type[" + type + "] is not supported");
         }
 
     }
 
-    public static MetaService createMetaService(Configuration config) throws UnsupportedException {
+    public static CloseableMetaService createMetaService(Configuration config) throws UnsupportedException {
         String type = config.getString("meta.service");
         if (StringUtil.isNullOrEmpty(type)) {
-            throw new UnsupportedException("Meta service type is empty.");
+            throw new IllegalArgumentException("Meta service type is empty.");
         }
 
         switch (type.trim().toLowerCase()) {
@@ -34,7 +34,7 @@ public class ServiceFactory {
                 RedisConfiguration redisConf = new RedisConfiguration(config);
                 return new RedisMetaService(redisConf);
             default:
-                throw new UnsupportedException("Meta service type [" + type + "] is not supported");
+                throw new UnsupportedException("Meta service type[" + type + "] is not supported");
         }
     }
 }
