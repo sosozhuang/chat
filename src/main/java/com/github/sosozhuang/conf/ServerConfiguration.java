@@ -69,6 +69,13 @@ public class ServerConfiguration {
         return config.getLong("server.idle_timeout", defaultValue);
     }
 
+    public String getWebsocketPath() {
+        return getWebsocketPath(null);
+    }
+    public String getWebsocketPath(String defaultValue) {
+        return config.getString("server.websocket.path", defaultValue);
+    }
+
     @Override
     public String toString() {
         return config.toString();
