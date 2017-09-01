@@ -27,6 +27,27 @@ public class KafkaConfiguration {
         return config.getString("kafka.topic.pattern", defaultValue);
     }
 
+    public int getTopicCount() {
+        return getTopicCount(0);
+    }
+    public int getTopicCount(int defaultValue) {
+        return config.getInteger("kafka.topic.count", defaultValue);
+    }
+
+    public int getTopicPartition() {
+        return getTopicPartition(0);
+    }
+    public int getTopicPartition(int defaultValue) {
+        return config.getInteger("kafka.topic.partition", defaultValue);
+    }
+
+    public short getTopicReplication() {
+        return getTopicReplication((short) 0);
+    }
+    public short getTopicReplication(short defaultValue) {
+        return config.getShort("kafka.topic.replica", defaultValue);
+    }
+
     public String getConsumerGroupId() {
         return getConsumerGroupId(null);
     }
