@@ -50,6 +50,17 @@ public final class Configuration {
         return params.getOrDefault(key, defaultValue);
     }
 
+    public short getShort(String key) {
+        return getShort(key, (short) 0);
+    }
+    public short getShort(String key, short defaultValue) {
+        String value = params.get(key);
+        if (value != null) {
+            return Short.parseShort(value);
+        }
+        return defaultValue;
+    }
+
     public int getInteger(String key) {
         return getInteger(key, 0);
     }
