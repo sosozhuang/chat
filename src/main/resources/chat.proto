@@ -25,3 +25,16 @@ message Server {
     required uint64 start_at = 4;
     optional string config = 5;
 }
+
+enum Gender {
+    UNKNOWN = 0;
+    MALE    = 1;
+    FEMALE  = 2;
+}
+
+message User {
+    required string name = 1;
+    required Gender gender = 2;
+    optional string birth = 3;
+    optional bytes  description = 4;
+}
