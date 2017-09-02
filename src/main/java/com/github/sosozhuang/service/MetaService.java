@@ -5,9 +5,11 @@ import com.github.sosozhuang.protobuf.Chat;
 import java.io.Closeable;
 import java.io.IOException;
 
-public interface MetaService extends Closeable {
+public interface MetaService {
     public boolean registerServer(Chat.Server server);
     public boolean unRegisterServer(String serverID);
+    public Chat.Server serverInfo(String serverID) throws IOException;
+    public Iterable<Chat.Server> listServers() throws IOException;
 
     public Chat.Group groupInfo(String groupID) throws IOException;
     public String nextGroupID();
