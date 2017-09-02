@@ -78,11 +78,11 @@ public class ChatServer {
 
     private void receive() {
         try {
-            Iterable<MessageRecord<String, String>> records = messageService.receive();
+            Iterable<MessageRecord<String, byte[]>> records = messageService.receive();
             Chat.Message message = null;
-            for (MessageRecord<String, String> record : records) {
+            for (MessageRecord<String, byte[]> record : records) {
                 try {
-                    message = Chat.Message.parseFrom(record.getValue().getBytes());
+                    message = Chat.Message.parseFrom(record.getValue());
                 } catch (InvalidProtocolBufferException e) {
                     LOGGER.error("Parse record error.", e);
                     continue;
@@ -135,23 +135,23 @@ public class ChatServer {
     public void stop() {
         if (future != null) {
             try {
-                future.channel().close().awaitUninterruptibly();
+                future.channel().close().sync();
             } catch (Throwable throwable) {
-                LOGGER.warn("Close server channel error.", throwable);
+                LOGGER.error("Close server channel error.", throwable);
             }
         }
         if (bossGroup != null) {
             try {
-                bossGroup.shutdownGracefully();
+                bossGroup.shutdownGracefully().sync();
             } catch (Throwable throwable) {
-                LOGGER.warn("Shut down boss group error.", throwable);
+                LOGGER.error("Shut down boss group error.", throwable);
             }
         }
         if (workerGroup != null) {
             try {
-                workerGroup.shutdownGracefully();
+                workerGroup.shutdownGracefully().sync();
             } catch (Throwable throwable) {
-                LOGGER.warn("Shut down worker group error.", throwable);
+                LOGGER.error("Shut down worker group error.", throwable);
             }
         }
         if (registered && !metaService.unRegisterServer(String.valueOf(id))) {
