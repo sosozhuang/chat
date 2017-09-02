@@ -62,11 +62,18 @@ public class ServerConfiguration {
         return config.getLong("server.executor.schedule_rate", defaultValue);
     }
 
+    public boolean getIdleClose() {
+        return getIdleClose(false);
+    }
+    public boolean getIdleClose(boolean defauleValue) {
+        return config.getBoolean("server.idle.close", defauleValue);
+    }
+
     public long getIdleTimeout() {
         return getIdleTimeout(0);
     }
     public long getIdleTimeout(long defaultValue) {
-        return config.getLong("server.idle_timeout", defaultValue);
+        return config.getLong("server.idle.timeout", defaultValue);
     }
 
     public String getWebsocketPath() {
