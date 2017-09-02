@@ -2,6 +2,7 @@ package com.github.sosozhuang.service;
 
 import com.github.sosozhuang.conf.RedisConfiguration;
 import com.github.sosozhuang.protobuf.Chat;
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.netty.util.internal.StringUtil;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.slf4j.Logger;
@@ -11,14 +12,16 @@ import redis.clients.jedis.JedisCluster;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-public class RedisMetaService implements MetaService {
+public class RedisMetaService implements CloseableMetaService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RedisMetaService.class);
     private RedisConfiguration config;
     private volatile JedisCluster jedisCluster;
-    private final String SERVER_KEY;
-    private final String GROUP_KEY;
+    private final byte[] SERVER_KEY;
+    private final byte[] GROUP_KEY;
     private final String GROUP_MEMBER_KEY;
     private final String SEQUENCE_KEY;
     private final String LAST_LOGIN_TIME_KEY;
@@ -49,8 +52,8 @@ public class RedisMetaService implements MetaService {
 
         String prefix = config.getKeyPrefix("chat");
         String seperator = config.getKeySeperator("::");
-        SERVER_KEY = String.format("%s%s%s", prefix, seperator, "server");
-        GROUP_KEY = String.format("%s%s%s", prefix, seperator, "group");
+        SERVER_KEY = String.format("%s%s%s", prefix, seperator, "server").getBytes();
+        GROUP_KEY = String.format("%s%s%s", prefix, seperator, "group").getBytes();
         GROUP_MEMBER_KEY = String.format("%s%s%s%s", prefix, seperator, "group", seperator);
         SEQUENCE_KEY = String.format("%s%s%s", prefix, seperator, "seq");
         LAST_LOGIN_TIME_KEY = String.format("%s%s%s%s", prefix, seperator, "llt", seperator);
@@ -58,21 +61,45 @@ public class RedisMetaService implements MetaService {
 
     @Override
     public boolean registerServer(Chat.Server server) {
-        return jedisCluster.hsetnx(SERVER_KEY, server.getId(), server.toString()) == 1 ? true : false;
+        return jedisCluster.hsetnx(SERVER_KEY, server.getId().getBytes(), server.toByteArray()) == 1 ? true : false;
     }
 
     @Override
     public boolean unRegisterServer(String serverID) {
-        return jedisCluster.hdel(SERVER_KEY, serverID) == 1 ? true : false;
+        return jedisCluster.hdel(SERVER_KEY, serverID.getBytes()) == 1 ? true : false;
+    }
+
+    @Override
+    public Chat.Server serverInfo(String serverID) throws IOException {
+        byte[] value = jedisCluster.hget(SERVER_KEY, serverID.getBytes());
+        if (value == null) {
+            return null;
+        }
+        return Chat.Server.parseFrom(value);
+    }
+
+    public Iterable<Chat.Server> listServers() {
+        Map<byte[], byte[]> servers = jedisCluster.hgetAll(SERVER_KEY);
+        if (servers == null || servers.size() == 0) {
+            return null;
+        }
+        return servers.values().stream().map(server -> {
+            try {
+                return Chat.Server.parseFrom(server);
+            } catch (InvalidProtocolBufferException e) {
+                LOGGER.warn("parse server info", e);
+            }
+            return null;
+        }).collect(Collectors.toList());
     }
 
     @Override
     public Chat.Group groupInfo(String groupID) throws IOException {
-        String value = jedisCluster.hget(GROUP_KEY, groupID);
-        if (StringUtil.isNullOrEmpty(value)) {
+        byte[] value = jedisCluster.hget(GROUP_KEY, groupID.getBytes());
+        if (value == null) {
             return null;
         }
-        return Chat.Group.parseFrom(value.getBytes());
+        return Chat.Group.parseFrom(value);
     }
 
     @Override
@@ -82,18 +109,17 @@ public class RedisMetaService implements MetaService {
 
     @Override
     public boolean createGroup(Chat.Group group) {
-        return jedisCluster.hsetnx(GROUP_KEY, group.getId(), group.toString()) == 1 ? true : false;
+        return jedisCluster.hsetnx(GROUP_KEY, group.getId().getBytes(), group.toByteArray()) == 1 ? true : false;
     }
 
     @Override
     public boolean deleteGroup(String groupID) {
-        return jedisCluster.hdel(GROUP_KEY, groupID) == 1 ? true : false;
+        return jedisCluster.hdel(GROUP_KEY, groupID.getBytes()) == 1 ? true : false;
     }
 
     @Override
     public boolean joinGroup(String groupID, String user) {
         return jedisCluster.sadd(GROUP_MEMBER_KEY + groupID, user) == 1 ? true : false;
-
     }
 
     @Override
@@ -113,7 +139,7 @@ public class RedisMetaService implements MetaService {
 
     @Override
     public Iterable<String> groupMembers(String groupID, int limit) {
-        return jedisCluster.srandmember(GROUP_MEMBER_KEY, limit);
+        return jedisCluster.srandmember(GROUP_MEMBER_KEY + groupID, limit);
     }
 
     @Override
