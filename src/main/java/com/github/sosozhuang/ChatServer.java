@@ -1,7 +1,6 @@
 package com.github.sosozhuang;
 
 
-import com.github.sosozhuang.conf.Configuration;
 import com.github.sosozhuang.conf.ServerConfiguration;
 import com.github.sosozhuang.protobuf.Chat;
 import com.github.sosozhuang.service.*;
@@ -90,10 +89,10 @@ public class ChatServer {
                 if (message.getServerId() == id) {
                     continue;
                 }
-                WebSocketHandler.receiveMessage(message);
+                ChatHandler.receiveMessage(message);
             }
         } catch (Exception e) {
-            LOGGER.error("", e);
+            LOGGER.error("Receive messages from service error.", e);
         }
     }
 
@@ -106,7 +105,9 @@ public class ChatServer {
                 .option(ChannelOption.SO_BACKLOG, 64)
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
-                .childHandler(new ChatInitializer(id, config.getIdleTimeout(),
+                .childHandler(new ChatInitializer(id,
+                        config.getIdleClose(),
+                        config.getIdleTimeout(),
                         config.getWebsocketPath("/websocket"),
                         sslCtx, metaService, messageService));
     }
