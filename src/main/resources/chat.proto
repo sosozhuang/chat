@@ -2,13 +2,19 @@ syntax = "proto2";
 option java_package = "com.github.sosozhuang.protobuf";
 option java_outer_classname = "Chat";
 
+enum MessageType {
+    CHAT = 0;
+    LOGIN = 1;
+    LOGOUT = 2;
+}
 message Message {
-    required string group_id = 1;
-    required uint64 server_id = 2;
-    required string from_user = 3;
-    optional string to_user = 4;
-    required string content = 5;
-    required uint64 create_at = 6;
+    required MessageType type = 1;
+    required string group_id = 2;
+    required uint64 server_id = 3;
+    required string from_user = 4;
+    optional string to_user = 5;
+    optional string content = 6;
+    required uint64 create_at = 7;
 }
 
 message Group {
