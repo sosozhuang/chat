@@ -83,6 +83,13 @@ public class ServerConfiguration {
         return config.getString("server.websocket.path", defaultValue);
     }
 
+    public String[] getStaticFiles() {
+        return config.getStringArray(null);
+    }
+    public String[] getStaticFiles(String[] defaultValues) {
+        return config.getStringArray("server.static.files", defaultValues);
+    }
+
     @Override
     public String toString() {
         return config.toString();
