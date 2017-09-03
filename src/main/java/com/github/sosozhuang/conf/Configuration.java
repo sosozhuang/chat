@@ -50,6 +50,26 @@ public final class Configuration {
         return params.getOrDefault(key, defaultValue);
     }
 
+    public String[] getStringArray(String key) {
+        return getStringArray(key, null);
+    }
+    public String[] getStringArray(String key, String[] defaultValues) {
+        return getStringArray(key, defaultValues, true);
+    }
+    public String[] getStringArray(String key, String[] defaultValues, boolean trim) {
+        String value = params.get(key);
+        if (value != null) {
+            String[] values = value.split(",");
+            if (trim) {
+                for (int i = 0; i < values.length; i++) {
+                    values[i] = values[i].trim();
+                }
+            }
+            return values;
+        }
+        return defaultValues;
+    }
+
     public short getShort(String key) {
         return getShort(key, (short) 0);
     }
