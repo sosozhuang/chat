@@ -66,14 +66,14 @@ public class RedisConfiguration {
         return getKeyPrefix(null);
     }
     public String getKeyPrefix(String defaultValue) {
-        return config.getString("redis.key_prefix", defaultValue);
+        return config.getString("redis.key.prefix", defaultValue);
     }
 
-    public String getKeySeperator() {
-        return getKeySeperator(null);
+    public String getKeySeparator() {
+        return getKeySeparator(null);
     }
-    public String getKeySeperator(String defaultValue) {
-        return config.getString("redis.key_seperator", defaultValue);
+    public String getKeySeparator(String defaultValue) {
+        return config.getString("redis.key.separator", defaultValue);
     }
 
 }
