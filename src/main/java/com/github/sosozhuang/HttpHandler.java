@@ -16,8 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static io.netty.handler.codec.http.HttpMethod.GET;
 import static io.netty.handler.codec.http.HttpMethod.POST;
@@ -26,11 +25,12 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpHandler.class);
-    private String path;
+    private static final Set<String> STATIC_FILES = new HashSet<>(Arrays.asList("html", "jpg", "png", "js", "map"));
+    static final AttributeKey GROUP = AttributeKey.valueOf("group");
+    static final AttributeKey USER = AttributeKey.valueOf("user");
     private MetaService metaService;
 
-    public HttpHandler(String path, MetaService metaService) {
-        this.path = path;
+    public HttpHandler(MetaService metaService) {
         this.metaService = metaService;
     }
 
@@ -51,93 +51,89 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         }
     }
 
-    private void handleGet(ChannelHandlerContext ctx, FullHttpRequest request) {
+    private static String getQueryParam(Map<String, List<String>> params, String key) {
+        List<String> values = params.get(key);
+        if (values == null || values.size() == 0) {
+            return null;
+        }
+        return values.get(0);
+    }
+
+    private void handleGet(ChannelHandlerContext ctx, FullHttpRequest request) throws URISyntaxException {
         String uri = request.uri();
-        try {
-            String p = new URI(uri).getPath();
-            if (!"/chat".equals(p)) {
+        String p = new URI(uri).getPath();
+        if ("/".equals(p)) {
+            sendRedirectResponse(ctx, "/index.html");
+            return;
+        }
+
+        if ("/index.html".equals(p)) {
+            Map<String, List<String>> params = (new QueryStringDecoder(uri)).parameters();
+            String user = getQueryParam(params, "user");
+            if (StringUtil.isNullOrEmpty(user)) {
+                ctx.fireChannelRead(request.retainedDuplicate());
+                return;
+            }
+
+            String groupID = getQueryParam(params, "group");
+            if (StringUtil.isNullOrEmpty(groupID)) {
+                ctx.fireChannelRead(request.retainedDuplicate());
+                return;
+            }
+
+            String token = getQueryParam(params, "token");
+            if (StringUtil.isNullOrEmpty(token)) {
+                ctx.fireChannelRead(request.retainedDuplicate());
+                return;
+            }
+
+            Chat.Group group;
+            try {
+                group = metaService.groupInfo(groupID);
+            } catch (IOException e) {
+                LOGGER.warn("Get group[{}] info error.", groupID, e);
+                sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR));
+                return;
+            }
+
+            if (group == null) {
                 sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND));
                 return;
             }
-        } catch (URISyntaxException e) {
-            LOGGER.warn("Request uri {} invalid.", uri, e);
-        }
 
-        Map<String, List<String>> params = (new QueryStringDecoder(uri)).parameters();
-        List<String> userParams = params.get("user");
-        if (userParams == null || userParams.size() == 0) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST));
-            return;
-        }
-        String user = userParams.get(0);
-        if (StringUtil.isNullOrEmpty(user)) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST));
-            return;
-        }
+            if (!token.equals(group.getToken())) {
+                sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, UNAUTHORIZED));
+                return;
+            }
 
-        List<String> groupParams = params.get("group");
-        if (groupParams == null || groupParams.size() == 0) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST));
-            return;
-        }
-        String groupID = groupParams.get(0);
-        if (StringUtil.isNullOrEmpty(groupID)) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST));
+            if (metaService.groupMembersCount(groupID) > 1000) {
+                sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, NOT_ACCEPTABLE));
+                return;
+            }
+
+            ctx.channel().attr(GROUP).set(groupID);
+            ctx.channel().attr(USER).set(user);
+            ctx.fireChannelRead(request.retainedDuplicate());
             return;
         }
 
-        List<String> tokenParams = params.get("token");
-        if (tokenParams == null || tokenParams.size() == 0) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST));
-            return;
-        }
-        String token = tokenParams.get(0);
-        if (StringUtil.isNullOrEmpty(token)) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST));
+        int index = p.lastIndexOf(".");
+        if (index != -1 && STATIC_FILES.contains(p.substring(index + 1))) {
+            ctx.fireChannelRead(request.retainedDuplicate());
             return;
         }
 
-        groupID = groupID.trim();
-        token = token.trim();
+        sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND));
+        return;
 
-        Chat.Group group;
-        try {
-            group = metaService.groupInfo(groupID);
-        } catch (IOException e) {
-            LOGGER.warn("Get group[{}] info error.", groupID, e);
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR));
-            return;
-        }
-
-        if (group == null) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND));
-            return;
-        }
-
-        if (!token.equals(group.getToken())) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, UNAUTHORIZED));
-            return;
-        }
-
-        if (metaService.groupMembersCount(groupID) > 1000) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, NOT_ACCEPTABLE));
-            return;
-        }
-
-        if (!metaService.joinGroup(groupID, user)) {
-            sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, CONFLICT));
-            return;
-        }
-
-        String location = getWebSocketLocation(ctx.pipeline(), request, path);
-        ByteBuf content = ChatPage.getContent(location, groupID, user);
-        FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, OK, content);
-
-        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/html; charset=UTF-8");
-        HttpUtil.setContentLength(response, content.readableBytes());
-
-        sendHttpResponse(ctx, request, response);
-//        ctx.fireUserEventTriggered(groupID);
+//        String location = getWebSocketLocation(ctx.pipeline(), request, path);
+//        ByteBuf content = ChatPage.getContent(location, groupID, user);
+//        FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, OK, content);
+//
+//        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/html; charset=UTF-8");
+//        HttpUtil.setContentLength(response, content.readableBytes());
+//
+//        sendHttpResponse(ctx, request, response);
     }
 
     private void handlePost(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -212,9 +208,15 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         }
     }
 
+    private static void sendRedirectResponse(ChannelHandlerContext ctx, String location) {
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, TEMPORARY_REDIRECT);
+        response.headers().set(HttpHeaderNames.LOCATION, location);
+        ctx.channel().writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        LOGGER.warn("HttpHandler caught an error", cause);
+        LOGGER.warn("{} caught an exception.", HttpHandler.class.getSimpleName(), cause);
         ctx.close();
     }
 
