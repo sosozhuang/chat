@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>we(don't)chat</title>
+</head>
+<body>
+<script type="text/javascript">
+var socket;
+if (!window.WebSocket) {
+  window.WebSocket = window.MozWebSocket;
+}
+if (window.WebSocket) {
+  socket = new WebSocket("ws://127.0.0.1:8443/websocket");
+  socket.onmessage = function(event) {
+    var ta = document.getElementById('responseText');
+    if (event.data) {
+        var content;
+        var message = JSON.parse(event.data);
+        if (message.type == 'CHAT') {
+            content = message.create_at + ' [' + message.from_user + ']: ' + message.content;
+        } else if (message.type == 'CONFIRM') {
+            content = 'Dear [' + message.from_user + '], welcome to chatroom['+ message.group_id + ']!';
+        } else if (message.type == 'LOGIN') {
+            content = message.create_at + ' [' + message.from_user + '] just joined.';
+        } else if (message.type == 'LOGOUT') {
+            content = message.create_at + ' [' + message.from_user + '] just left.';
+        } else if (message.type == 'SYSTEM') {
+            content = 'Members: ' + message.members;
+        } else {
+            console.log('unknown message type, ', message);
+        }
+        ta.value = ta.value + '\n' + content;
+    }
+  };
+  socket.onopen = function(event) {
+    var ta = document.getElementById('responseText');
+    ta.value = "Web Socket opened!";
+    var token = getCookie('access-token');
+    if (token) {
+        send(token);
+    } else {
+        socket.close();
+    }
+  };
+  socket.onclose = function(event) {
+    var ta = document.getElementById('responseText');
+    ta.value = ta.value + '\nSee you...';
+  };
+} else {
+  alert("Your browser does not support Web Socket.");
+}
+
+function send(message) {
+  if (!window.WebSocket) { return; }
+  if (message == null || message == undefined || message == '') { return; }
+  document.getElementById('input').value = '';
+  if (socket.readyState == WebSocket.OPEN) {
+    socket.send(message);
+  } else {
+    alert("The socket is not init.");
+  }
+}
+
+function getCookie(cname) {
+    var name = cname + '=';
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1);
+        if (c.indexOf(name) != -1) return c.substring(name.length, c.length);
+    }
+    return '';
+}
+
+
+</script>
+<form onsubmit="return false;">
+    <input id="input" type="text" name="message" value="Hello, World!"/>
+    <input type="button" value="Send Message" onclick="send(this.form.message.value)"/>
+    <h3>Output</h3>
+    <textarea id="responseText" style="width:500px;height:300px;" disabled="disabled"></textarea>
+</form>
+</body>
+</html>
