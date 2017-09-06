@@ -1,13 +1,8 @@
 package com.github.sosozhuang;
 
 
-import com.github.sosozhuang.protobuf.Chat;
-import com.github.sosozhuang.service.MetaService;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http.cookie.Cookie;
-import io.netty.handler.codec.http.cookie.DefaultCookie;
-import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedFile;
 import io.netty.util.internal.StringUtil;
@@ -18,20 +13,14 @@ import javax.activation.MimetypesFileTypeMap;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLDecoder;
 import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static io.netty.handler.codec.http.HttpMethod.GET;
@@ -45,18 +34,6 @@ public class StaticFileHandler extends SimpleChannelInboundHandler<FullHttpReque
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern(HTTP_DATE_FORMAT).withLocale(Locale.US).withZone(ZoneId.of(HTTP_DATE_GMT_TIMEZONE));
     private static final int HTTP_CACHE_SECONDS = 600;
-    private MetaService metaService;
-//    private SecureRandom random;
-
-    public StaticFileHandler(MetaService metaService) {
-        this.metaService = metaService;
-//        try {
-//            random = SecureRandom.getInstance("SHA1PRNG");
-//        } catch (NoSuchAlgorithmException e) {
-//            random = new SecureRandom();
-//        }
-//        random.setSeed(System.currentTimeMillis());
-    }
 
     @Override
     public void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
@@ -115,23 +92,6 @@ public class StaticFileHandler extends SimpleChannelInboundHandler<FullHttpReque
         if (HttpUtil.isKeepAlive(request)) {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
         }
-
-//        String user = (String) ctx.channel().attr(HttpHandler.USER).get();
-//        String groupID = (String) ctx.channel().attr(HttpHandler.GROUP).get();
-//        if (StringUtil.isNullOrEmpty(request.headers().get(HttpHeaderNames.COOKIE)) &&
-//                !StringUtil.isNullOrEmpty(user) && !StringUtil.isNullOrEmpty(groupID)) {
-//            byte[] bytes = new byte[12];
-//            random.nextBytes(bytes);
-//            String token = Base64.getEncoder().encodeToString(bytes);
-//            Cookie cookie = new DefaultCookie("access-token", token);
-//            cookie.setMaxAge(TimeUnit.SECONDS.toSeconds(8));
-//            response.headers().set(HttpHeaderNames.SET_COOKIE, ServerCookieEncoder.STRICT.encode(cookie));
-//
-//            Chat.Access.Builder builder = Chat.Access.newBuilder();
-//            builder.setGroupId(groupID);
-//            builder.setUser(user);
-//            metaService.setExpireToken(token.getBytes(), builder.build(), 8);
-//        }
 
         // Write the initial line and the header.
         ctx.write(response);

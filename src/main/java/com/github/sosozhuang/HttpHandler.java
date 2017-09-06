@@ -33,8 +33,6 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpHandler.class);
     private static final Set<String> STATIC_FILES = new HashSet<>(Arrays.asList("html", "jpg", "png", "js", "map"));
-    //    static final AttributeKey GROUP = AttributeKey.valueOf("group");
-//    static final AttributeKey USER = AttributeKey.valueOf("user");
     private MetaService metaService;
     private SecureRandom random;
 
@@ -86,21 +84,18 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             String user = getQueryParam(params, "user");
             if (StringUtil.isNullOrEmpty(user)) {
                 sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, UNAUTHORIZED));
-//                ctx.fireChannelRead(request.retainedDuplicate());
                 return;
             }
 
             String groupID = getQueryParam(params, "group");
             if (StringUtil.isNullOrEmpty(groupID)) {
                 sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, UNAUTHORIZED));
-//                ctx.fireChannelRead(request.retainedDuplicate());
                 return;
             }
 
             String token = getQueryParam(params, "token");
             if (StringUtil.isNullOrEmpty(token)) {
                 sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, UNAUTHORIZED));
-//                ctx.fireChannelRead(request.retainedDuplicate());
                 return;
             }
 
@@ -128,8 +123,6 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
                 return;
             }
 
-//            ctx.channel().attr(GROUP).set(groupID);
-//            ctx.channel().attr(USER).set(user);
             byte[] bytes = new byte[12];
             random.nextBytes(bytes);
             String t = Base64.getEncoder().encodeToString(bytes);
@@ -141,7 +134,6 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             builder.setUser(user);
             metaService.setExpireToken(t.getBytes(), builder.build(), 8);
             sendRedirectResponse(ctx, request, "/index.html", cookie);
-//            ctx.fireChannelRead(request.retainedDuplicate());
             return;
         }
 
@@ -152,16 +144,6 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         }
 
         sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND));
-        return;
-
-//        String location = getWebSocketLocation(ctx.pipeline(), request, path);
-//        ByteBuf content = ChatPage.getContent(location, groupID, user);
-//        FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, OK, content);
-//
-//        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/html; charset=UTF-8");
-//        HttpUtil.setContentLength(response, content.readableBytes());
-//
-//        sendHttpResponse(ctx, request, response);
     }
 
     private void handlePost(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -220,14 +202,6 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private void handleDel(ChannelHandlerContext ctx, FullHttpRequest request) {
 
     }
-
-//    private static String getWebSocketLocation(ChannelPipeline pipeline, HttpRequest req, String path) {
-//        String protocol = "ws";
-//        if (pipeline.get(SslHandler.class) != null) {
-//            protocol = "wss";
-//        }
-//        return protocol + "://" + req.headers().get(HttpHeaderNames.HOST) + path;
-//    }
 
     private static void sendHttpResponse(ChannelHandlerContext ctx, FullHttpRequest request, FullHttpResponse response) {
         ChannelFuture f = ctx.channel().writeAndFlush(response);

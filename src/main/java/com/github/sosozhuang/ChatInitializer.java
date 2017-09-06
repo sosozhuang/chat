@@ -59,7 +59,7 @@ public class ChatInitializer extends ChannelInitializer<SocketChannel> {
         p.addLast(new WebSocketServerCompressionHandler());
         p.addLast(new WebSocketServerProtocolHandler(websocketPath, null, true));
         p.addLast(new HttpHandler(metaService));
-        p.addLast(new StaticFileHandler(metaService));
+        p.addLast(new StaticFileHandler());
         p.addLast(new ChatHandler(id, metaService, messageService));
     }
 }
