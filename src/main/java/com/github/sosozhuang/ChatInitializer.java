@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 
 import java.util.concurrent.TimeUnit;
@@ -52,6 +53,9 @@ public class ChatInitializer extends ChannelInitializer<SocketChannel> {
         }
         p.addLast(new HttpServerCodec());
         p.addLast(new HttpObjectAggregator(65536));
+        if (sslCtx != null) {
+            p.addLast(new ChunkedWriteHandler());
+        }
         p.addLast(new WebSocketServerCompressionHandler());
         p.addLast(new WebSocketServerProtocolHandler(websocketPath, null, true));
         p.addLast(new HttpHandler(metaService));
