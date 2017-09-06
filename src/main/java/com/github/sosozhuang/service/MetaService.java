@@ -1,9 +1,11 @@
 package com.github.sosozhuang.service;
 
 import com.github.sosozhuang.protobuf.Chat;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public interface MetaService {
     public boolean registerServer(Chat.Server server);
@@ -23,4 +25,9 @@ public interface MetaService {
 
     public String lastLoginTime(String groupID, String user);
     public void setLastLoginTime(String groupID, String user, String time);
+    public void setToken(byte[] token, Chat.Access access);
+    public void setExpireToken(byte[] token, Chat.Access access, int seconds);
+    public Chat.Access getToken(byte[] token) throws IOException;
+    public boolean deleteToken(byte[] token);
+    public Chat.Access getTokenThenDelete(byte[] token) throws IOException;
 }

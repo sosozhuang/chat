@@ -3,7 +3,6 @@ package com.github.sosozhuang.service;
 import com.github.sosozhuang.conf.RedisConfiguration;
 import com.github.sosozhuang.protobuf.Chat;
 import com.google.protobuf.InvalidProtocolBufferException;
-import io.netty.util.internal.StringUtil;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +24,7 @@ public class RedisMetaService implements CloseableMetaService {
     private final String GROUP_MEMBER_KEY;
     private final String SEQUENCE_KEY;
     private final String LAST_LOGIN_TIME_KEY;
+    private final byte[] TOKEN_KEY;
 
     public RedisMetaService(RedisConfiguration config) {
         this.config = config;
@@ -51,12 +51,13 @@ public class RedisMetaService implements CloseableMetaService {
                 config.getSoTimeout(10000), config.getMaxAttempt(3), poolConfig);
 
         String prefix = config.getKeyPrefix("chat");
-        String seperator = config.getKeySeperator("::");
+        String seperator = config.getKeySeparator("::");
         SERVER_KEY = String.format("%s%s%s", prefix, seperator, "server").getBytes();
         GROUP_KEY = String.format("%s%s%s", prefix, seperator, "group").getBytes();
         GROUP_MEMBER_KEY = String.format("%s%s%s%s", prefix, seperator, "group", seperator);
         SEQUENCE_KEY = String.format("%s%s%s", prefix, seperator, "seq");
         LAST_LOGIN_TIME_KEY = String.format("%s%s%s%s", prefix, seperator, "llt", seperator);
+        TOKEN_KEY = String.format("%s%s%s%s", prefix, seperator, "tok", seperator).getBytes();
     }
 
     @Override
@@ -109,22 +110,22 @@ public class RedisMetaService implements CloseableMetaService {
 
     @Override
     public boolean createGroup(Chat.Group group) {
-        return jedisCluster.hsetnx(GROUP_KEY, group.getId().getBytes(), group.toByteArray()) == 1 ? true : false;
+        return jedisCluster.hsetnx(GROUP_KEY, group.getId().getBytes(), group.toByteArray()) == 1L ? true : false;
     }
 
     @Override
     public boolean deleteGroup(String groupID) {
-        return jedisCluster.hdel(GROUP_KEY, groupID.getBytes()) == 1 ? true : false;
+        return jedisCluster.hdel(GROUP_KEY, groupID.getBytes()) == 1L ? true : false;
     }
 
     @Override
     public boolean joinGroup(String groupID, String user) {
-        return jedisCluster.sadd(GROUP_MEMBER_KEY + groupID, user) == 1 ? true : false;
+        return jedisCluster.sadd(GROUP_MEMBER_KEY + groupID, user) == 1L ? true : false;
     }
 
     @Override
     public boolean leaveGroup(String groupID, String user) {
-        return jedisCluster.srem(GROUP_MEMBER_KEY + groupID, user) == 1 ? true : false;
+        return jedisCluster.srem(GROUP_MEMBER_KEY + groupID, user) == 1L ? true : false;
     }
 
     @Override
@@ -150,6 +151,50 @@ public class RedisMetaService implements CloseableMetaService {
     @Override
     public void setLastLoginTime(String groupID, String user, String time) {
         jedisCluster.hset(LAST_LOGIN_TIME_KEY + groupID, user, time);
+    }
+
+    private byte[] formatTokenKey(byte[] token) {
+        byte[] key = new byte[TOKEN_KEY.length + token.length];
+        System.arraycopy(TOKEN_KEY, 0, key, 0, TOKEN_KEY.length);
+        System.arraycopy(token, 0, key, TOKEN_KEY.length, token.length);
+        return key;
+    }
+
+    @Override
+    public void setToken(byte[] token, Chat.Access access) {
+        jedisCluster.set(formatTokenKey(token), access.toByteArray());
+    }
+
+    @Override
+    public void setExpireToken(byte[] token, Chat.Access access, int seconds) {
+        jedisCluster.setex(formatTokenKey(token), seconds, access.toByteArray());
+    }
+
+    @Override
+    public Chat.Access getToken(byte[] token) throws IOException {
+        byte[] value = jedisCluster.get(formatTokenKey(token));
+        if (value == null) {
+            return null;
+        }
+        return Chat.Access.parseFrom(value);
+    }
+
+    @Override
+    public boolean deleteToken(byte[] token) {
+        return jedisCluster.del(formatTokenKey(token)) == 1L ? true : false;
+    }
+
+    @Override
+    public Chat.Access getTokenThenDelete(byte[] token) throws IOException {
+        byte[] key = formatTokenKey(token);
+        if (!jedisCluster.exists(key)) {
+            return null;
+        }
+        byte[] value = jedisCluster.getSet(formatTokenKey(token), new byte[]{});
+        if (value == null || value.length == 0) {
+            return null;
+        }
+        return Chat.Access.parseFrom(value);
     }
 
     @Override
