@@ -30,6 +30,7 @@
         <jedis.version>2.9.0</jedis.version>
         <kafka.version>0.11.0.0</kafka.version>
         <protobuf.version>3.4.0</protobuf.version>
+        <protobuf.format.version>1.4</protobuf.format.version>
     </properties>
 
     <dependencies>
@@ -64,6 +65,11 @@
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
             <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.protobuf-java-format</groupId>
+            <artifactId>protobuf-java-format</artifactId>
+            <version>${protobuf.format.version}</version>
         </dependency>
 
     </dependencies>
