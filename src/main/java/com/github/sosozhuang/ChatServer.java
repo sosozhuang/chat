@@ -32,16 +32,14 @@ public class ChatServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatServer.class);
     private ServerConfiguration config;
     private SslContext sslCtx;
-    private String host;
-    private int port;
     private long id;
     private ServerBootstrap bootstrap;
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
-    private ChannelFuture future;
+    private volatile ChannelFuture future;
+    private volatile boolean registered;
     private MetaService metaService;
     private MessageService messageService;
-    private boolean registered;
 
     public ChatServer(ServerConfiguration config,
                       MetaService metaService,
@@ -59,11 +57,10 @@ public class ChatServer {
                 sslCtx = SslContextBuilder.forServer(new File(cert), new File(key)).build();
             }
         }
-        this.host = config.getHost();
-        this.port = config.getPort();
         this.id = config.getId();
         if (this.id <= 0) {
-            this.id = address2Long(host, port);
+            this.id = address2Long(config.getHost(), config.getPort());
+            config.setId(this.id);
         }
         this.registered = false;
     }
@@ -119,15 +116,15 @@ public class ChatServer {
     public void start() throws InterruptedException {
         Chat.Server.Builder builder = Chat.Server.newBuilder();
         builder.setId(String.valueOf(id));
-        builder.setHost(host);
-        builder.setPort(port);
+        builder.setHost(config.getHost());
+        builder.setPort(config.getPort());
         builder.setStartAt(System.currentTimeMillis());
         builder.setConfig(config.toString());
         if (!metaService.registerServer(builder.build())) {
             throw new RuntimeException("Server[" + id + "] already registered in meta service.");
         }
         registered = true;
-        future = bootstrap.bind(host, port).addListener(future -> {
+        future = bootstrap.bind(config.getHost(), config.getPort()).addListener(future -> {
             if (future.isSuccess()) {
                 LOGGER.info("Chat service rocks!");
                 for (EventExecutor executor : workerGroup) {
