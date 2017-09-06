@@ -33,13 +33,13 @@ public class RedisMetaService implements CloseableMetaService {
         for (String server : servers) {
             String[] hostPort = server.split(":");
             if (hostPort.length != 2) {
-                LOGGER.warn("{}", server);
+                LOGGER.warn("Redis server configuration {} error.", server);
                 continue;
             }
             try {
                 nodes.add(new HostAndPort(hostPort[0].trim(), Integer.parseInt(hostPort[1])));
             } catch (NumberFormatException e) {
-                LOGGER.warn("Parse server port error", e);
+                LOGGER.warn("Parse server port {} to number error.", hostPort[1], e);
             }
         }
         GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
@@ -52,9 +52,9 @@ public class RedisMetaService implements CloseableMetaService {
 
         String prefix = config.getKeyPrefix("chat");
         String seperator = config.getKeySeparator("::");
-        SERVER_KEY = String.format("%s%s%s", prefix, seperator, "server").getBytes();
-        GROUP_KEY = String.format("%s%s%s", prefix, seperator, "group").getBytes();
-        GROUP_MEMBER_KEY = String.format("%s%s%s%s", prefix, seperator, "group", seperator);
+        SERVER_KEY = String.format("%s%s%s", prefix, seperator, "svr").getBytes();
+        GROUP_KEY = String.format("%s%s%s", prefix, seperator, "grp").getBytes();
+        GROUP_MEMBER_KEY = String.format("%s%s%s%s", prefix, seperator, "grp", seperator);
         SEQUENCE_KEY = String.format("%s%s%s", prefix, seperator, "seq");
         LAST_LOGIN_TIME_KEY = String.format("%s%s%s%s", prefix, seperator, "llt", seperator);
         TOKEN_KEY = String.format("%s%s%s%s", prefix, seperator, "tok", seperator).getBytes();
@@ -88,7 +88,7 @@ public class RedisMetaService implements CloseableMetaService {
             try {
                 return Chat.Server.parseFrom(server);
             } catch (InvalidProtocolBufferException e) {
-                LOGGER.warn("parse server info", e);
+                LOGGER.warn("Parse server info error.", e);
             }
             return null;
         }).collect(Collectors.toList());
@@ -190,7 +190,7 @@ public class RedisMetaService implements CloseableMetaService {
         if (!jedisCluster.exists(key)) {
             return null;
         }
-        byte[] value = jedisCluster.getSet(formatTokenKey(token), new byte[]{});
+        byte[] value = jedisCluster.getSet(key, new byte[]{});
         if (value == null || value.length == 0) {
             return null;
         }
