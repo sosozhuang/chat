@@ -206,6 +206,25 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 LOGGER.warn("groupID {} does not contains user {}", groupID, user);
             }
             metaService.setLastLoginTime(groupID, user, String.valueOf(System.currentTimeMillis()));
+
+            Instant timestamp = Instant.now();
+            Chat.Message.Builder builder = Chat.Message.newBuilder();
+            builder.setType(Chat.MessageType.LOGOUT);
+            builder.setGroupId(group.getId());
+            builder.setServerId(serverID);
+            builder.setFromUser(user);
+            builder.setCreateAt(timestamp.toEpochMilli());
+            Chat.Message message = builder.build();
+
+            WebSocketFrame out = messageToWebSocketFrame(message);
+            for (Channel c : channels) {
+                if (c != ctx.channel()) {
+                    c.writeAndFlush(out.retainedDuplicate());
+                }
+            }
+            out.release();
+
+            messageService.send(user, group, new MessageRecord(group.getId(), message.toByteArray()));
         }
     }
 
@@ -232,36 +251,36 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 return;
             }
 
-            Instant timestamp = Instant.now();
-
-            Chat.Message.Builder builder = Chat.Message.newBuilder();
             if (":quit!".equals(content.toLowerCase())) {
                 ctx.close();
 //                out = new TextWebSocketFrame(dateTime + " <--[" + user + "] just left.-->\n");
 
-                builder.setType(Chat.MessageType.LOGOUT);
+//                builder.setType(Chat.MessageType.LOGOUT);
             } else {
 //                ctx.writeAndFlush(new TextWebSocketFrame(dateTime + " #you#: " + content + "\n"));
 //                out = new TextWebSocketFrame(dateTime + " [" + user + "]: " + content + "\n");
+                Instant timestamp = Instant.now();
+
+                Chat.Message.Builder builder = Chat.Message.newBuilder();
 
                 builder.setType(Chat.MessageType.CHAT);
                 builder.setContent(content);
-            }
-            builder.setGroupId(group.getId());
-            builder.setServerId(serverID);
-            builder.setFromUser(user);
-            builder.setCreateAt(timestamp.toEpochMilli());
-            Chat.Message message = builder.build();
-            WebSocketFrame out = messageToWebSocketFrame(message);
+                builder.setGroupId(group.getId());
+                builder.setServerId(serverID);
+                builder.setFromUser(user);
+                builder.setCreateAt(timestamp.toEpochMilli());
+                Chat.Message message = builder.build();
+                WebSocketFrame out = messageToWebSocketFrame(message);
 
-            for (Channel c : channels) {
-                if (c != ctx.channel()) {
-                    c.writeAndFlush(out.retainedDuplicate());
+                for (Channel c : channels) {
+                    if (c != ctx.channel()) {
+                        c.writeAndFlush(out.retainedDuplicate());
+                    }
                 }
-            }
-            out.release();
+                out.release();
 
-            messageService.send(user, group, new MessageRecord(group.getId(), message.toByteArray()));
+                messageService.send(user, group, new MessageRecord(group.getId(), message.toByteArray()));
+            }
         } else {
             String message = "unsupported frame type: " + frame.getClass().getName();
             throw new UnsupportedOperationException(message);
