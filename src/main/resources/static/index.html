@@ -51,7 +51,7 @@ if (window.WebSocket) {
   };
   socket.onopen = function(event) {
     var ta = document.getElementById('responseText');
-    ta.value = "A Netty+Kafka+Redis chat service.";
+    ta.value = "<----- A Netty+Kafka+Redis chat service. ----->";
     var token = getCookie('access-token');
     if (token) {
         send(token);
@@ -62,6 +62,7 @@ if (window.WebSocket) {
   socket.onclose = function(event) {
     var ta = document.getElementById('responseText');
     ta.value = ta.value + '\nSee you...';
+    ta.scrollTop = ta.scrollHeight;
   };
 } else {
   alert("Your browser does not support Web Socket.");
@@ -74,6 +75,7 @@ function send(message) {
     document.getElementById('input').value = '';
     var ta = document.getElementById('responseText');
     ta.value = ta.value + '\n' + new Date().toLocaleString() + ' #you#: ' + message;
+    ta.scrollTop = ta.scrollHeight;
     socket.send(message);
   } else {
     alert('The socket is not init.');
