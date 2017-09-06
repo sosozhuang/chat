@@ -1,4 +1,4 @@
-package com.github.sosozhuang;
+package com.github.sosozhuang.handler;
 
 import com.github.sosozhuang.service.MessageService;
 import com.github.sosozhuang.service.MetaService;

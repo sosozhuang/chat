@@ -1,4 +1,4 @@
-package com.github.sosozhuang;
+package com.github.sosozhuang.handler;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;

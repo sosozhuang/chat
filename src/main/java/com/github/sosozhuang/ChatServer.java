@@ -2,8 +2,12 @@ package com.github.sosozhuang;
 
 
 import com.github.sosozhuang.conf.ServerConfiguration;
+import com.github.sosozhuang.handler.ChatHandler;
+import com.github.sosozhuang.handler.ChatInitializer;
 import com.github.sosozhuang.protobuf.Chat;
-import com.github.sosozhuang.service.*;
+import com.github.sosozhuang.service.MessageRecord;
+import com.github.sosozhuang.service.MessageService;
+import com.github.sosozhuang.service.MetaService;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
