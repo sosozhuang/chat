@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatHandler.class);
     private static final Map<String, ChannelGroup> CHANNEL_GROUP_MAP = new ConcurrentHashMap<>();
-//    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
     private static final JsonFormat JSON_FORMAT = new JsonFormat();
     private ChannelGroup channels;
     private Chat.Group group;
@@ -46,23 +45,6 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
         if (channelGroup == null) {
             return;
         }
-//        Instant timestamp = Instant.ofEpochMilli(message.getCreateAt());
-//        String dateTime = LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault()).format(FORMATTER);
-
-//        TextWebSocketFrame frame = null;
-//        switch (message.getType()) {
-//            case CHAT:
-//                frame = new TextWebSocketFrame(dateTime + " [" + message.getFromUser() + "]: " + message.getContent() + "\n");
-//                break;
-//            case LOGIN:
-//                frame = new TextWebSocketFrame(dateTime + " -->[" + message.getFromUser() + "] just joined.<--\n");
-//                break;
-//            case LOGOUT:
-//                frame = new TextWebSocketFrame(dateTime + " <--[" + message.getFromUser() + "] just left.-->\n");
-//                break;
-//            default:
-//                return;
-//        }
         WebSocketFrame out = messageToWebSocketFrame(message);
         for (Channel c : channelGroup) {
             c.writeAndFlush(out.retainedDuplicate());
@@ -103,8 +85,6 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             }
             Chat.Message message;
             int count = 0;
-//            Instant timestamp;
-//            String dateTime;
             for (MessageRecord<String, byte[]> record : records) {
                 try {
                     message = Chat.Message.parseFrom(record.getValue());
@@ -114,21 +94,11 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 }
 
                 if (Chat.MessageType.CHAT == message.getType() && groupID.equals(message.getGroupId())) {
-//                    timestamp = Instant.ofEpochMilli(message.getCreateAt());
-//                    dateTime = LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault()).format(FORMATTER);
                     count++;
-//                    if (message.getFromUser().equals(user)) {
-//                        ctx.write(new TextWebSocketFrame(dateTime + " #you#: " + message.getContent() + "\n"));
-//                    } else {
-//                        ctx.write(new TextWebSocketFrame(dateTime + " [" + message.getFromUser() + "]: " + message.getContent() + "\n"));
-//                    }
                     ctx.write(messageToWebSocketFrame(message));
                 }
             }
             if (count > 0) {
-//                Instant timestamp = Instant.ofEpochMilli(lastLoginTime);
-//                String dateTime = LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault()).format(FORMATTER);
-//                ctx.writeAndFlush(new TextWebSocketFrame(count + " unread messages since " + dateTime + ".\n"));
                 Chat.Message.Builder builder = Chat.Message.newBuilder();
                 builder.setType(Chat.MessageType.UNREAD);
                 builder.setServerId(serverID);
@@ -146,8 +116,6 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             }
         });
 
-//        Long count = metaService.groupMembersCount(groupID);
-//        if (count > 1) {
         Iterable<String> members = metaService.groupMembers(groupID);
         Chat.Message.Builder builder = Chat.Message.newBuilder();
         builder.setType(Chat.MessageType.MEMBERS);
@@ -159,24 +127,7 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
         builder.addAllMembers(members);
         ctx.writeAndFlush(messageToWebSocketFrame(builder.build()));
 
-//            StringBuilder sb = new StringBuilder();
-//            sb.append("Now you can chat with ");
-//            for (String member : members) {
-//                if (!user.equals(member)) {
-//                    sb.append("[");
-//                    sb.append(member);
-//                    sb.append("], ");
-//                }
-//            }
-//            sb.append(count);
-//            sb.append(" members in the chatroom.\n");
-//            ctx.writeAndFlush(new TextWebSocketFrame(sb.toString()));
-//        } else {
-//            ctx.writeAndFlush(new TextWebSocketFrame("Currently only yourself in the chatroom.\n"));
-//        }
-
         Instant timestamp = Instant.now();
-//        String dateTime = LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault()).format(FORMATTER);
         builder.clear();
         builder.setType(Chat.MessageType.LOGIN);
         builder.setGroupId(group.getId());
@@ -253,16 +204,9 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
 
             if (":quit!".equals(content.toLowerCase())) {
                 ctx.close();
-//                out = new TextWebSocketFrame(dateTime + " <--[" + user + "] just left.-->\n");
-
-//                builder.setType(Chat.MessageType.LOGOUT);
             } else {
-//                ctx.writeAndFlush(new TextWebSocketFrame(dateTime + " #you#: " + content + "\n"));
-//                out = new TextWebSocketFrame(dateTime + " [" + user + "]: " + content + "\n");
                 Instant timestamp = Instant.now();
-
                 Chat.Message.Builder builder = Chat.Message.newBuilder();
-
                 builder.setType(Chat.MessageType.CHAT);
                 builder.setContent(content);
                 builder.setGroupId(group.getId());
