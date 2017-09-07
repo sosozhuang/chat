@@ -1,5 +1,6 @@
 package com.github.sosozhuang.handler;
 
+import com.github.sosozhuang.conf.ServerConfigGetter;
 import com.github.sosozhuang.service.MessageService;
 import com.github.sosozhuang.service.MetaService;
 import io.netty.channel.ChannelInitializer;
@@ -10,35 +11,40 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.internal.StringUtil;
 
+import java.io.File;
+import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
 
 
 public class ChatInitializer extends ChannelInitializer<SocketChannel> {
-    private final long id;
-    private final boolean idleClose;
-    private final long readIdleTime;
-    private String websocketPath;
+    private ServerConfigGetter config;
     private SslContext sslCtx;
     private MetaService metaService;
     private MessageService messageService;
 
-    public ChatInitializer(long id,
-                           boolean idleClose,
-                           long readIdleTime,
-                           String websocketPath,
-                           SslContext sslCtx,
+    public ChatInitializer(ServerConfigGetter config,
                            MetaService metaService,
-                           MessageService messageService) {
-        this.id = id;
-        this.idleClose = idleClose;
-        this.readIdleTime = readIdleTime;
-        this.websocketPath = websocketPath;
-        this.sslCtx = sslCtx;
+                           MessageService messageService) throws Exception {
+        if (config.getSsl()) {
+            SelfSignedCertificate ssc = new SelfSignedCertificate();
+            String cert = config.getCert();
+            String key = config.getKey();
+            if (StringUtil.isNullOrEmpty(cert) || StringUtil.isNullOrEmpty(key)) {
+                sslCtx = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey()).build();
+            } else {
+                sslCtx = SslContextBuilder.forServer(new File(cert), new File(key)).build();
+            }
+        }
+        this.config = config;
         this.metaService = metaService;
         this.messageService = messageService;
+        HttpHandler.addStaticFiles(config.getStaticFiles());
     }
 
     @Override
@@ -47,8 +53,8 @@ public class ChatInitializer extends ChannelInitializer<SocketChannel> {
         if (sslCtx != null) {
             p.addLast(sslCtx.newHandler(channel.alloc()));
         }
-        if (idleClose && readIdleTime > 0) {
-            p.addLast(new IdleStateHandler(readIdleTime, 0, 0, TimeUnit.MINUTES));
+        if (config.getIdleClose() && config.getIdleTimeout() > 0) {
+            p.addLast(new IdleStateHandler(config.getIdleTimeout(), 0, 0, TimeUnit.MINUTES));
             p.addLast(new IdleStateTrigger());
         }
         p.addLast(new HttpServerCodec());
@@ -57,9 +63,10 @@ public class ChatInitializer extends ChannelInitializer<SocketChannel> {
             p.addLast(new ChunkedWriteHandler());
         }
         p.addLast(new WebSocketServerCompressionHandler());
-        p.addLast(new WebSocketServerProtocolHandler(websocketPath, null, true));
+        p.addLast(new WebSocketServerProtocolHandler(config.getWebsocketPath("/websocket"),
+                null, true));
         p.addLast(new HttpHandler(metaService));
         p.addLast(new StaticFileHandler());
-        p.addLast(new ChatHandler(id, metaService, messageService));
+        p.addLast(new ChatHandler(config.getId(), metaService, messageService));
     }
 }
