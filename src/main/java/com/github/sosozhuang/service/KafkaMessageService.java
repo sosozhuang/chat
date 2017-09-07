@@ -1,7 +1,6 @@
 package com.github.sosozhuang.service;
 
-import com.github.sosozhuang.GroupPartitioner;
-import com.github.sosozhuang.conf.KafkaConfiguration;
+import com.github.sosozhuang.conf.KafkaConfig;
 import com.github.sosozhuang.protobuf.Chat;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -31,7 +30,7 @@ import java.util.stream.IntStream;
 public class KafkaMessageService implements CloseableMessageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaMessageService.class);
     private static final ConsumerRebalanceListener NO_OP_LISTENER = new NoOpConsumerRebalanceListener();
-    private KafkaConfiguration config;
+    private KafkaConfig config;
     private Pattern pattern;
     private Properties producerProps;
     private Producer producer;
@@ -39,7 +38,7 @@ public class KafkaMessageService implements CloseableMessageService {
     private ThreadLocal<ConsumerTask> tasks;
     private List<Consumer> consumers;
 
-    public KafkaMessageService(KafkaConfiguration config) {
+    public KafkaMessageService(KafkaConfig config) {
         this.config = config;
         pattern = Pattern.compile("^" + config.getTopicPattern("chat") + "-\\d$");
         initProps();
