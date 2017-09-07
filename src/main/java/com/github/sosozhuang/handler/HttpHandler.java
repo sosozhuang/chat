@@ -32,7 +32,7 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpHandler.class);
-    private static final Set<String> STATIC_FILES = new HashSet<>(Arrays.asList("html", "jpg", "png", "js", "map"));
+    private static final Set<String> STATIC_FILES = new HashSet<>();
     private MetaService metaService;
     private SecureRandom random;
 
@@ -44,6 +44,10 @@ public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             random = new SecureRandom();
         }
         random.setSeed(System.currentTimeMillis());
+    }
+
+    public static void addStaticFiles(String[] files) {
+        STATIC_FILES.addAll(Arrays.asList(files));
     }
 
 
