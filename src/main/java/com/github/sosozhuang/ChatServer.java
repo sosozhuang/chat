@@ -15,15 +15,10 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.concurrent.EventExecutor;
-import io.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
@@ -48,13 +43,13 @@ public class ChatServer {
         this.messageService = messageService;
         this.id = config.getId();
         if (this.id <= 0) {
-            this.id = address2Long(config.getHost(), config.getPort());
+            this.id = addressToLong(config.getHost(), config.getPort());
             config.setId(this.id);
         }
         this.registered = false;
     }
 
-    private static long address2Long(String host, int port) throws UnknownHostException {
+    private static long addressToLong(String host, int port) throws UnknownHostException {
         String address = InetAddress.getByName(host).getHostAddress();
         long ip = 0;
         String[] nums = address.split("\\.");
@@ -66,23 +61,25 @@ public class ChatServer {
     }
 
     private void receive() {
+        Iterable<MessageRecord<String, byte[]>> records;
         try {
-            Iterable<MessageRecord<String, byte[]>> records = messageService.receive();
-            Chat.Message message = null;
-            for (MessageRecord<String, byte[]> record : records) {
-                try {
-                    message = Chat.Message.parseFrom(record.getValue());
-                } catch (InvalidProtocolBufferException e) {
-                    LOGGER.error("Parse record error.", e);
-                    continue;
-                }
-                if (message.getServerId() == id) {
-                    continue;
-                }
-                ChatHandler.receiveMessage(message);
-            }
-        } catch (Exception e) {
+            records = messageService.receive();
+        } catch (RuntimeException e) {
             LOGGER.error("Receive messages from service error.", e);
+            return;
+        }
+        Chat.Message message = null;
+        for (MessageRecord<String, byte[]> record : records) {
+            try {
+                message = Chat.Message.parseFrom(record.getValue());
+            } catch (InvalidProtocolBufferException e) {
+                LOGGER.error("Parse record error.", e);
+                continue;
+            }
+            if (message.getServerId() == id) {
+                continue;
+            }
+            ChatHandler.receiveMessage(message);
         }
     }
 
@@ -124,22 +121,22 @@ public class ChatServer {
         if (future != null) {
             try {
                 future.channel().close().sync();
-            } catch (Throwable throwable) {
-                LOGGER.error("Close server channel error.", throwable);
+            } catch (Throwable cause) {
+                LOGGER.error("Close server channel error.", cause);
             }
         }
         if (bossGroup != null) {
             try {
                 bossGroup.shutdownGracefully().sync();
-            } catch (Throwable throwable) {
-                LOGGER.error("Shut down boss group error.", throwable);
+            } catch (Throwable cause) {
+                LOGGER.error("Shut down boss group error.", cause);
             }
         }
         if (workerGroup != null) {
             try {
                 workerGroup.shutdownGracefully().sync();
-            } catch (Throwable throwable) {
-                LOGGER.error("Shut down worker group error.", throwable);
+            } catch (Throwable cause) {
+                LOGGER.error("Shut down worker group error.", cause);
             }
         }
         if (registered && !metaService.unRegisterServer(String.valueOf(id))) {
