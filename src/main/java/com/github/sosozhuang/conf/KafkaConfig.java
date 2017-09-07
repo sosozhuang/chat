@@ -62,13 +62,6 @@ public class KafkaConfig {
         return config.getLong("kafka.consumer.poll_timeout", defaultValue);
     }
 
-    public long getConsumerScheduleRate() {
-        return getConsumerScheduleRate(0);
-    }
-    public long getConsumerScheduleRate(long defaultValue) {
-        return config.getLong("kafka.consumer.schedule_rate", defaultValue);
-    }
-
     public long getConsumerCloseTimeout() {
         return getConsumerCloseTimeout(0);
     }
