@@ -197,6 +197,9 @@ public class RedisMetaService implements CloseableMetaService {
         if (value == null || value.length == 0) {
             return null;
         }
+        if (jedisCluster.expire(key, 0) == 0L) {
+            LOGGER.warn("Token {} not exist.", key);
+        }
         return Chat.Access.parseFrom(value);
     }
 
