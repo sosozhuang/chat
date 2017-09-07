@@ -1,7 +1,7 @@
 package com.github.sosozhuang;
 
 
-import com.github.sosozhuang.conf.ServerConfiguration;
+import com.github.sosozhuang.conf.ServerConfig;
 import com.github.sosozhuang.handler.ChatHandler;
 import com.github.sosozhuang.handler.ChatInitializer;
 import com.github.sosozhuang.protobuf.Chat;
@@ -30,8 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 public class ChatServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatServer.class);
-    private ServerConfiguration config;
-    private SslContext sslCtx;
+    private ServerConfig config;
     private long id;
     private ServerBootstrap bootstrap;
     private EventLoopGroup bossGroup;
@@ -41,22 +40,12 @@ public class ChatServer {
     private MetaService metaService;
     private MessageService messageService;
 
-    public ChatServer(ServerConfiguration config,
+    public ChatServer(ServerConfig config,
                       MetaService metaService,
-                      MessageService messageService) throws Exception {
+                      MessageService messageService) throws UnknownHostException {
         this.config = config;
         this.metaService = metaService;
         this.messageService = messageService;
-        if (config.getSsl()) {
-            SelfSignedCertificate ssc = new SelfSignedCertificate();
-            String cert = config.getCert();
-            String key = config.getKey();
-            if (StringUtil.isNullOrEmpty(cert) || StringUtil.isNullOrEmpty(key)) {
-                sslCtx = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey()).build();
-            } else {
-                sslCtx = SslContextBuilder.forServer(new File(cert), new File(key)).build();
-            }
-        }
         this.id = config.getId();
         if (this.id <= 0) {
             this.id = address2Long(config.getHost(), config.getPort());
@@ -97,7 +86,7 @@ public class ChatServer {
         }
     }
 
-    public void init() {
+    public void init() throws Exception {
         bossGroup = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
         bootstrap = new ServerBootstrap();
@@ -106,11 +95,8 @@ public class ChatServer {
                 .option(ChannelOption.SO_BACKLOG, 64)
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
-                .childHandler(new ChatInitializer(id,
-                        config.getIdleClose(),
-                        config.getIdleTimeout(),
-                        config.getWebsocketPath("/websocket"),
-                        sslCtx, metaService, messageService));
+                .childHandler(new ChatInitializer(config,
+                        metaService, messageService));
     }
 
     public void start() throws InterruptedException {

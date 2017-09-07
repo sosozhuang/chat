@@ -1,9 +1,9 @@
 package com.github.sosozhuang.conf;
 
-public class ServerConfiguration implements ServerConfigurationGetter {
+public class ServerConfig implements ServerConfigGetter {
     private Configuration config;
     private long id;
-    public ServerConfiguration(Configuration config) {
+    public ServerConfig(Configuration config) {
         this.config = config;
     }
 

@@ -1,7 +1,7 @@
 package com.github.sosozhuang;
 
 import com.github.sosozhuang.conf.Configuration;
-import com.github.sosozhuang.conf.ServerConfiguration;
+import com.github.sosozhuang.conf.ServerConfig;
 import com.github.sosozhuang.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +22,7 @@ public final class ChatMain {
                 config = new Configuration(new File(configPath));
             }
 
-            ServerConfiguration serverConf = new ServerConfiguration(config);
+            ServerConfig serverConf = new ServerConfig(config);
             CloseableMetaService metaService = ServiceFactory.createMetaService(config);
             CloseableMessageService messageService = ServiceFactory.createMessageService(config);
             ChatServer server = new ChatServer(serverConf, metaService, messageService);

@@ -1,8 +1,8 @@
 package com.github.sosozhuang.service;
 
 import com.github.sosozhuang.conf.Configuration;
-import com.github.sosozhuang.conf.KafkaConfiguration;
-import com.github.sosozhuang.conf.RedisConfiguration;
+import com.github.sosozhuang.conf.KafkaConfig;
+import com.github.sosozhuang.conf.RedisConfig;
 import io.netty.util.internal.StringUtil;
 
 public class ServiceFactory {
@@ -15,7 +15,7 @@ public class ServiceFactory {
 
         switch (type.trim().toLowerCase()) {
             case "kafka":
-                KafkaConfiguration kafkaConf = new KafkaConfiguration(config);
+                KafkaConfig kafkaConf = new KafkaConfig(config);
                 return new KafkaMessageService(kafkaConf);
             default:
                 throw new UnsupportedException("Message service type[" + type + "] is not supported");
@@ -31,7 +31,7 @@ public class ServiceFactory {
 
         switch (type.trim().toLowerCase()) {
             case "redis":
-                RedisConfiguration redisConf = new RedisConfiguration(config);
+                RedisConfig redisConf = new RedisConfig(config);
                 return new RedisMetaService(redisConf);
             default:
                 throw new UnsupportedException("Meta service type[" + type + "] is not supported");

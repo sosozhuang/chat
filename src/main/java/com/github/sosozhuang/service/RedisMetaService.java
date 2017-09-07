@@ -1,6 +1,6 @@
 package com.github.sosozhuang.service;
 
-import com.github.sosozhuang.conf.RedisConfiguration;
+import com.github.sosozhuang.conf.RedisConfig;
 import com.github.sosozhuang.protobuf.Chat;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 public class RedisMetaService implements CloseableMetaService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RedisMetaService.class);
-    private RedisConfiguration config;
+    private RedisConfig config;
     private volatile JedisCluster jedisCluster;
     private final byte[] SERVER_KEY;
     private final byte[] GROUP_KEY;
@@ -26,7 +26,7 @@ public class RedisMetaService implements CloseableMetaService {
     private final String LAST_LOGIN_TIME_KEY;
     private final byte[] TOKEN_KEY;
 
-    public RedisMetaService(RedisConfiguration config) {
+    public RedisMetaService(RedisConfig config) {
         this.config = config;
         String[] servers = config.getServers().split(",");
         Set<HostAndPort> nodes = new HashSet<>(servers.length);
@@ -187,6 +187,9 @@ public class RedisMetaService implements CloseableMetaService {
     @Override
     public Chat.Access getTokenThenDelete(byte[] token) throws IOException {
         byte[] key = formatTokenKey(token);
+        // better exec 'exists' and 'getSet' in transaction
+        // getSet may return a empty value when set by another client first
+        // however it won't cause a bug
         if (!jedisCluster.exists(key)) {
             return null;
         }

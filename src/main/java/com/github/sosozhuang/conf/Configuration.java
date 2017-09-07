@@ -102,6 +102,9 @@ public final class Configuration {
         }
         return defaultValue;
     }
+    public void setLong(String key, long value) {
+        params.put(key, String.valueOf(value));
+    }
 
     public boolean getBoolean(String key) {
         return getBoolean(key, false);

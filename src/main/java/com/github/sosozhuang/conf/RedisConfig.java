@@ -1,8 +1,8 @@
 package com.github.sosozhuang.conf;
 
-public class RedisConfiguration {
+public class RedisConfig {
     private Configuration config;
-    public RedisConfiguration(Configuration config) {
+    public RedisConfig(Configuration config) {
         this.config = config;
     }
 

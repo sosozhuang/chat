@@ -1,8 +1,8 @@
 package com.github.sosozhuang.conf;
 
-public class KafkaConfiguration {
+public class KafkaConfig {
     private Configuration config;
-    public KafkaConfiguration(Configuration config) {
+    public KafkaConfig(Configuration config) {
         this.config = config;
     }
 
