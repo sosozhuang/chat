@@ -1,10 +1,8 @@
 package com.github.sosozhuang.conf;
 
-import java.util.HashMap;
-import java.util.Map;
-
-public class ServerConfiguration {
+public class ServerConfiguration implements ServerConfigurationGetter {
     private Configuration config;
+    private long id;
     public ServerConfiguration(Configuration config) {
         this.config = config;
     }
@@ -31,6 +29,10 @@ public class ServerConfiguration {
 
     public long getId(long defaultValue) {
         return config.getLong("server.id", defaultValue);
+    }
+
+    public void setId(long id) {
+        config.setLong("server.id", id);
     }
 
     public boolean getSsl() {
@@ -84,7 +86,7 @@ public class ServerConfiguration {
     }
 
     public String[] getStaticFiles() {
-        return config.getStringArray(null);
+        return getStaticFiles(null);
     }
     public String[] getStaticFiles(String[] defaultValues) {
         return config.getStringArray("server.static.files", defaultValues);
