@@ -6,6 +6,9 @@ enum MessageType {
     CHAT = 0;
     LOGIN = 1;
     LOGOUT = 2;
+    UNREAD = 3;
+    CONFIRM = 4;
+    MEMBERS = 5;
 }
 message Message {
     required MessageType type = 1;
@@ -15,6 +18,7 @@ message Message {
     optional string to_user = 5;
     optional string content = 6;
     required uint64 create_at = 7;
+    repeated string members = 8;
 }
 
 message Group {
@@ -32,6 +36,12 @@ message Server {
     optional string config = 5;
 }
 
+message Access {
+    required string group_id = 1;
+    required string user = 2;
+    optional uint64 timestamp = 3;
+}
+
 enum Gender {
     UNKNOWN = 0;
     MALE    = 1;
@@ -41,6 +51,7 @@ enum Gender {
 message User {
     required string name = 1;
     required Gender gender = 2;
-    optional string birth = 3;
-    optional bytes  description = 4;
+    optional string avatar = 3;
+    optional string birth = 4;
+    optional bytes  description = 5;
 }

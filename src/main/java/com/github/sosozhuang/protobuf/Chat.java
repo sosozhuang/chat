@@ -3905,6 +3905,15 @@ public final class Chat {
      */
     com.google.protobuf.ByteString
         getUserBytes();
+
+    /**
+     * <code>optional uint64 timestamp = 3;</code>
+     */
+    boolean hasTimestamp();
+    /**
+     * <code>optional uint64 timestamp = 3;</code>
+     */
+    long getTimestamp();
   }
   /**
    * Protobuf type {@code Access}
@@ -3921,6 +3930,7 @@ public final class Chat {
     private Access() {
       groupId_ = "";
       user_ = "";
+      timestamp_ = 0L;
     }
 
     @java.lang.Override
@@ -3961,6 +3971,11 @@ public final class Chat {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
               user_ = bs;
+              break;
+            }
+            case 24: {
+              bitField0_ |= 0x00000004;
+              timestamp_ = input.readUInt64();
               break;
             }
           }
@@ -4072,6 +4087,21 @@ public final class Chat {
       }
     }
 
+    public static final int TIMESTAMP_FIELD_NUMBER = 3;
+    private long timestamp_;
+    /**
+     * <code>optional uint64 timestamp = 3;</code>
+     */
+    public boolean hasTimestamp() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <code>optional uint64 timestamp = 3;</code>
+     */
+    public long getTimestamp() {
+      return timestamp_;
+    }
+
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -4098,6 +4128,9 @@ public final class Chat {
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, user_);
       }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeUInt64(3, timestamp_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -4111,6 +4144,10 @@ public final class Chat {
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, user_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt64Size(3, timestamp_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -4138,6 +4175,11 @@ public final class Chat {
         result = result && getUser()
             .equals(other.getUser());
       }
+      result = result && (hasTimestamp() == other.hasTimestamp());
+      if (hasTimestamp()) {
+        result = result && (getTimestamp()
+            == other.getTimestamp());
+      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -4156,6 +4198,11 @@ public final class Chat {
       if (hasUser()) {
         hash = (37 * hash) + USER_FIELD_NUMBER;
         hash = (53 * hash) + getUser().hashCode();
+      }
+      if (hasTimestamp()) {
+        hash = (37 * hash) + TIMESTAMP_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getTimestamp());
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -4290,6 +4337,8 @@ public final class Chat {
         bitField0_ = (bitField0_ & ~0x00000001);
         user_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        timestamp_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -4322,6 +4371,10 @@ public final class Chat {
           to_bitField0_ |= 0x00000002;
         }
         result.user_ = user_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.timestamp_ = timestamp_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4373,6 +4426,9 @@ public final class Chat {
           bitField0_ |= 0x00000002;
           user_ = other.user_;
           onChanged();
+        }
+        if (other.hasTimestamp()) {
+          setTimestamp(other.getTimestamp());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -4556,6 +4612,38 @@ public final class Chat {
   }
   bitField0_ |= 0x00000002;
         user_ = value;
+        onChanged();
+        return this;
+      }
+
+      private long timestamp_ ;
+      /**
+       * <code>optional uint64 timestamp = 3;</code>
+       */
+      public boolean hasTimestamp() {
+        return ((bitField0_ & 0x00000004) == 0x00000004);
+      }
+      /**
+       * <code>optional uint64 timestamp = 3;</code>
+       */
+      public long getTimestamp() {
+        return timestamp_;
+      }
+      /**
+       * <code>optional uint64 timestamp = 3;</code>
+       */
+      public Builder setTimestamp(long value) {
+        bitField0_ |= 0x00000004;
+        timestamp_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional uint64 timestamp = 3;</code>
+       */
+      public Builder clearTimestamp() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        timestamp_ = 0L;
         onChanged();
         return this;
       }
@@ -5736,15 +5824,15 @@ public final class Chat {
       "\r\n\005token\030\002 \002(\t\022\r\n\005owner\030\003 \002(\t\022\021\n\tcreate_" +
       "at\030\004 \002(\004\"R\n\006Server\022\n\n\002id\030\001 \002(\t\022\014\n\004host\030\002" +
       " \002(\t\022\014\n\004port\030\003 \002(\r\022\020\n\010start_at\030\004 \002(\004\022\016\n\006" +
-      "config\030\005 \001(\t\"(\n\006Access\022\020\n\010group_id\030\001 \002(\t" +
-      "\022\014\n\004user\030\002 \002(\t\"a\n\004User\022\014\n\004name\030\001 \002(\t\022\027\n\006",
-      "gender\030\002 \002(\0162\007.Gender\022\016\n\006avatar\030\003 \001(\t\022\r\n" +
-      "\005birth\030\004 \001(\t\022\023\n\013description\030\005 \001(\014*T\n\013Mes" +
-      "sageType\022\010\n\004CHAT\020\000\022\t\n\005LOGIN\020\001\022\n\n\006LOGOUT\020" +
-      "\002\022\n\n\006UNREAD\020\003\022\013\n\007CONFIRM\020\004\022\013\n\007MEMBERS\020\005*" +
-      "+\n\006Gender\022\013\n\007UNKNOWN\020\000\022\010\n\004MALE\020\001\022\n\n\006FEMA" +
-      "LE\020\002B&\n\036com.github.sosozhuang.protobufB\004" +
-      "Chat"
+      "config\030\005 \001(\t\";\n\006Access\022\020\n\010group_id\030\001 \002(\t" +
+      "\022\014\n\004user\030\002 \002(\t\022\021\n\ttimestamp\030\003 \001(\004\"a\n\004Use",
+      "r\022\014\n\004name\030\001 \002(\t\022\027\n\006gender\030\002 \002(\0162\007.Gender" +
+      "\022\016\n\006avatar\030\003 \001(\t\022\r\n\005birth\030\004 \001(\t\022\023\n\013descr" +
+      "iption\030\005 \001(\014*T\n\013MessageType\022\010\n\004CHAT\020\000\022\t\n" +
+      "\005LOGIN\020\001\022\n\n\006LOGOUT\020\002\022\n\n\006UNREAD\020\003\022\013\n\007CONF" +
+      "IRM\020\004\022\013\n\007MEMBERS\020\005*+\n\006Gender\022\013\n\007UNKNOWN\020" +
+      "\000\022\010\n\004MALE\020\001\022\n\n\006FEMALE\020\002B&\n\036com.github.so" +
+      "sozhuang.protobufB\004Chat"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -5781,7 +5869,7 @@ public final class Chat {
     internal_static_Access_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_Access_descriptor,
-        new java.lang.String[] { "GroupId", "User", });
+        new java.lang.String[] { "GroupId", "User", "Timestamp", });
     internal_static_User_descriptor =
       getDescriptor().getMessageTypes().get(4);
     internal_static_User_fieldAccessorTable = new
