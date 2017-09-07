@@ -33,7 +33,7 @@ if (window.WebSocket) {
         if (message.type == 'CHAT') {
             content = new Date(message.create_at).toLocaleString() + ' [' + message.from_user + ']: ' + message.content;
         } else if (message.type == 'CONFIRM') {
-            content = 'Dear [' + message.from_user + '], welcome to chatroom['+ message.group_id + ']!';
+            content = 'Dear [' + message.from_user + '], welcome to chat group['+ message.group_id + ']!';
         } else if (message.type == 'LOGIN') {
             content = new Date(message.create_at).toLocaleString() + ' [' + message.from_user + '] just joined.';
         } else if (message.type == 'LOGOUT') {

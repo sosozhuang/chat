@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.sosozhuang</groupId>
-    <artifactId>chatroom</artifactId>
+    <artifactId>chat</artifactId>
     <version>1.0-SNAPSHOT</version>
     <build>
         <plugins>
@@ -24,8 +24,10 @@
                         </manifest>
                     </archive>
                     <descriptorRefs>
-                        <descriptorRef>ALL</descriptorRef>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <appendAssemblyId>false</appendAssemblyId>
+                    <finalName>${artifactId}-${version}-ALL</finalName>
                 </configuration>
                 <executions>
                     <execution>
@@ -41,7 +43,7 @@
     </build>
     <packaging>jar</packaging>
 
-    <name>chatroom</name>
+    <name>chat</name>
     <description>A simple chat service</description>
     <url>http://github.com/sosozhuang</url>
 
