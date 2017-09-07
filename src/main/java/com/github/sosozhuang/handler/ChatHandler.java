@@ -14,6 +14,8 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatHandler.class);
@@ -33,6 +36,7 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private final long serverID;
     private final MetaService metaService;
     private final MessageService messageService;
+    private int i;
 
     public ChatHandler(long serverID, MetaService metaService, MessageService messageService) {
         this.serverID = serverID;
@@ -58,7 +62,8 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             ctx.close();
             return;
         }
-        ctx.channel().eventLoop().submit(() -> {
+
+        ctx.channel().eventLoop().scheduleAtFixedRate(() -> {
             String value = metaService.lastLoginTime(groupID, user);
             if (StringUtil.isNullOrEmpty(value)) {
                 return;
@@ -72,20 +77,15 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 return;
             }
 
-            Iterable<MessageRecord<String, byte[]>> records = null;
-            try {
-                records = messageService.receive(user, group, lastLoginTime);
-                if (records == null) {
-                    return;
-                }
-            } catch (Exception e) {
-                LOGGER.warn("Receive message since time {} error.",
-                        lastLoginTime, e);
-                return;
+            Iterable<MessageRecord<String, byte[]>> records = records = messageService.receive(user, group, lastLoginTime);
+            if (records == null) {
+                throw new NoMoreMessageException("time to stop task.");
             }
+
             Chat.Message message;
-            int count = 0;
+            int count = 0, chat = 0;
             for (MessageRecord<String, byte[]> record : records) {
+                count++;
                 try {
                     message = Chat.Message.parseFrom(record.getValue());
                 } catch (InvalidProtocolBufferException e) {
@@ -94,26 +94,35 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 }
 
                 if (Chat.MessageType.CHAT == message.getType() && groupID.equals(message.getGroupId())) {
-                    count++;
+                    chat++;
                     ctx.write(messageToWebSocketFrame(message));
                 }
             }
-            if (count > 0) {
+            if (count <= 0) {
+                throw new NoMoreMessageException("time to stop task.");
+            } else if (chat > 0) {
                 Chat.Message.Builder builder = Chat.Message.newBuilder();
                 builder.setType(Chat.MessageType.UNREAD);
                 builder.setServerId(serverID);
                 builder.setGroupId(groupID);
                 builder.setFromUser("");
-                builder.setContent(String.valueOf(count));
+                builder.setContent(String.valueOf(chat));
                 builder.setCreateAt(lastLoginTime);
                 ctx.writeAndFlush(messageToWebSocketFrame(builder.build()));
             }
 
-        }).addListener(future -> {
-            channels.add(ctx.channel());
-            if (future.isSuccess()) {
-                metaService.setLastLoginTime(groupID, user, String.valueOf(System.currentTimeMillis()));
+        }, 0, 80, TimeUnit.MILLISECONDS).addListener(future -> {
+            Throwable cause = future.cause();
+            if (cause != null) {
+                if (cause instanceof NoMoreMessageException) {
+                    LOGGER.info("Poll unread messages task completed.");
+                    channels.add(ctx.channel());
+                    metaService.setLastLoginTime(groupID, user, String.valueOf(System.currentTimeMillis()));
+                } else {
+                    ctx.fireExceptionCaught(cause);
+                }
             }
+
         });
 
         Iterable<String> members = metaService.groupMembers(groupID);
@@ -235,5 +244,23 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         LOGGER.warn("{} caught an exception.", ChatHandler.class.getSimpleName(), cause);
         ctx.close();
+    }
+
+    private static class NoMoreMessageException extends RuntimeException {
+        public NoMoreMessageException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        public NoMoreMessageException(String message) {
+            super(message);
+        }
+
+        public NoMoreMessageException(Throwable cause) {
+            super(cause);
+        }
+
+        public NoMoreMessageException() {
+            super();
+        }
     }
 }

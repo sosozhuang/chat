@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +31,7 @@ import java.util.stream.IntStream;
 public class KafkaMessageService implements CloseableMessageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaMessageService.class);
     private static final ConsumerRebalanceListener NO_OP_LISTENER = new NoOpConsumerRebalanceListener();
+    private static final Map<Chat.Access, ConsumerTask> TEMP_TASKS = new ConcurrentHashMap<>();
     private KafkaConfig config;
     private Pattern pattern;
     private Properties producerProps;
@@ -128,7 +130,7 @@ public class KafkaMessageService implements CloseableMessageService {
     }
 
     @Override
-    public <K, V> Iterable<MessageRecord<K, V>> receive() throws Exception {
+    public <K, V> Iterable<MessageRecord<K, V>> receive() {
         ConsumerTask task = tasks.get();
         if (task == null) {
             KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
@@ -149,20 +151,19 @@ public class KafkaMessageService implements CloseableMessageService {
         return messages;
     }
 
-    @Override
-    public <K, V> Iterable<MessageRecord<K, V>> receive(String user, Chat.Group group, long timestamp) throws Exception {
+    private ConsumerTask newTempTask(Chat.Access access) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getServers("localhost:9092"));
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-        String topicName = getTopic(mapGroupIDToIndex(group.getId()));
+        String topicName = getTopic(mapGroupIDToIndex(access.getGroupId()));
         List<TopicPartition> partitions = consumer.partitionsFor(topicName).stream().map(partitionInfo -> {
             return new TopicPartition(topicName, partitionInfo.partition());
         }).collect(Collectors.toList());
         Map<TopicPartition, Long> timestamps = partitions.stream().collect(Collectors.toMap(Function.identity(), partition -> {
-            return timestamp;
+            return access.getTimestamp();
         }));
         Map<TopicPartition, OffsetAndTimestamp> offsets = consumer.offsetsForTimes(timestamps);
         if (offsets.size() == 0) {
@@ -172,18 +173,35 @@ public class KafkaMessageService implements CloseableMessageService {
         offsets.forEach((topicPartition, offsetAndTimestamp) -> {
             consumer.seek(topicPartition, offsetAndTimestamp.offset());
         });
-        ConsumerTask task = new ConsumerTask(consumer);
-        //todo close consumer where seek to end
-        ConsumerRecords<String, byte[]> records = task.pollMessage();
-        if (records == null || records.count() == 0) {
-            return Collections.emptyList();
+        return new ConsumerTask(consumer);
+    }
+
+    @Override
+    public <K, V> Iterable<MessageRecord<K, V>> receive(String user, Chat.Group group, long timestamp) {
+        Chat.Access.Builder builder = Chat.Access.newBuilder();
+        builder.setUser(user);
+        builder.setGroupId(group.getId());
+        builder.setTimestamp(timestamp);
+        Chat.Access access = builder.build();
+        ConsumerTask task = TEMP_TASKS.computeIfAbsent(access, this::newTempTask);
+        try {
+            ConsumerRecords<String, byte[]> records = task.pollMessage();
+            if (records == null || records.count() == 0) {
+                LOGGER.info("No more message to poll.");
+                task.consumer.close(100, TimeUnit.MILLISECONDS);
+                TEMP_TASKS.remove(access, task);
+                return Collections.emptyList();
+            }
+            List<MessageRecord<K, V>> messages = new ArrayList<>(records.count());
+            records.forEach(record -> {
+                messages.add(new MessageRecord(record.key(), record.value()));
+            });
+            return messages;
+        } catch (RuntimeException e) {
+            task.consumer.close(100, TimeUnit.MILLISECONDS);
+            TEMP_TASKS.remove(access, task);
+            throw e;
         }
-        List<MessageRecord<K, V>> messages = new ArrayList<>(records.count());
-        records.forEach(record -> {
-            messages.add(new MessageRecord(record.key(), record.value()));
-        });
-        consumer.close(100, TimeUnit.MILLISECONDS);
-        return messages;
     }
 
     @Override
@@ -208,6 +226,10 @@ public class KafkaMessageService implements CloseableMessageService {
             }
             consumers = null;
         }
+        TEMP_TASKS.values().forEach(task -> {
+            task.consumer.wakeup();
+            task.consumer.close();
+        });
     }
 
     private class ConsumerTask {
@@ -217,7 +239,7 @@ public class KafkaMessageService implements CloseableMessageService {
             this.consumer = consumer;
         }
 
-        ConsumerRecords pollMessage() throws Exception {
+        ConsumerRecords pollMessage() {
             ConsumerRecords records = consumer.poll(config.getConsumerPollTimeout(80));
             consumer.commitAsync();
             return records;
