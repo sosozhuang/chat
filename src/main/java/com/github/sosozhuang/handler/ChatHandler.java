@@ -63,27 +63,30 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             return;
         }
 
+        long[] chat = new long[1];
+        long[] lastLoginTime = new long[1];
         ctx.channel().eventLoop().scheduleAtFixedRate(() -> {
-            String value = metaService.lastLoginTime(groupID, user);
-            if (StringUtil.isNullOrEmpty(value)) {
-                return;
+            if (lastLoginTime[0] == 0L) {
+                String value = metaService.lastLoginTime(groupID, user);
+                if (StringUtil.isNullOrEmpty(value)) {
+                    throw new NoMoreMessageException();
+                }
+
+                try {
+                    lastLoginTime[0] = Math.max(Long.parseLong(value), System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L);
+                } catch (NumberFormatException e) {
+                    LOGGER.error("Parse last login time {} error.", value, e);
+                    throw new NoMoreMessageException(e);
+                }
             }
 
-            long lastLoginTime;
-            try {
-                lastLoginTime = Math.max(Long.parseLong(value), System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L);
-            } catch (NumberFormatException e) {
-                LOGGER.error("Parse last login time {} error.", value, e);
-                return;
-            }
-
-            Iterable<MessageRecord<String, byte[]>> records = records = messageService.receive(user, group, lastLoginTime);
+            Iterable<MessageRecord<String, byte[]>> records = records = messageService.receive(user, group, lastLoginTime[0]);
             if (records == null) {
                 throw new NoMoreMessageException("time to stop task.");
             }
 
             Chat.Message message;
-            int count = 0, chat = 0;
+            long count = 0;
             for (MessageRecord<String, byte[]> record : records) {
                 count++;
                 try {
@@ -94,27 +97,27 @@ public class ChatHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 }
 
                 if (Chat.MessageType.CHAT == message.getType() && groupID.equals(message.getGroupId())) {
-                    chat++;
+                    chat[0]++;
                     ctx.write(messageToWebSocketFrame(message));
                 }
             }
             if (count <= 0) {
                 throw new NoMoreMessageException("time to stop task.");
-            } else if (chat > 0) {
-                Chat.Message.Builder builder = Chat.Message.newBuilder();
-                builder.setType(Chat.MessageType.UNREAD);
-                builder.setServerId(serverID);
-                builder.setGroupId(groupID);
-                builder.setFromUser("");
-                builder.setContent(String.valueOf(chat));
-                builder.setCreateAt(lastLoginTime);
-                ctx.writeAndFlush(messageToWebSocketFrame(builder.build()));
             }
-
         }, 0, 80, TimeUnit.MILLISECONDS).addListener(future -> {
             Throwable cause = future.cause();
             if (cause != null) {
                 if (cause instanceof NoMoreMessageException) {
+                    if (chat[0] > 0) {
+                        Chat.Message.Builder builder = Chat.Message.newBuilder();
+                        builder.setType(Chat.MessageType.UNREAD);
+                        builder.setServerId(serverID);
+                        builder.setGroupId(groupID);
+                        builder.setFromUser("");
+                        builder.setContent(String.valueOf(chat[0]));
+                        builder.setCreateAt(lastLoginTime[0]);
+                        ctx.writeAndFlush(messageToWebSocketFrame(builder.build()));
+                    }
                     LOGGER.info("Poll unread messages task completed.");
                     channels.add(ctx.channel());
                     metaService.setLastLoginTime(groupID, user, String.valueOf(System.currentTimeMillis()));
