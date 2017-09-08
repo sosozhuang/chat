@@ -120,7 +120,7 @@ public class StaticFileHandler extends SimpleChannelInboundHandler<FullHttpReque
     }
 
     private static final Pattern INSECURE_URI = Pattern.compile(".*[<>&\"].*");
-    private static final String STATIC_DIR = StaticFileHandler.class.getResource("/static").getPath();
+    private static final String STATIC_DIR = "static";
 
     private static String sanitizeUri(String uri) {
         String p = null;
