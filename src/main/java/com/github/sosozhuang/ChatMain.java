@@ -16,7 +16,7 @@ public final class ChatMain {
         try {
             Configuration config;
             String configPath = System.getProperty("config");
-            if (configPath == null) {
+            if (configPath == null || "".equals(configPath)) {
                 config = new Configuration();
             } else {
                 config = new Configuration(new File(configPath));
