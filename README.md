@@ -19,12 +19,12 @@ Start a chat server.
 ```bash
 ./start
 ```
-127.0.0.1:`8080`/chat?user=`user1`&group=1&token=1234
+127.0.0.1:`8080`/chat?user=`user1`&group=1&token=1234  
 ![chat](images/1.png)
 
 Start another chat server with self defined properties file.
 ```bash
 ./start config=~/config.properties
 ```
-127.0.0.1:`8081`/chat?user=`user2`&group=1&token=1234
+127.0.0.1:`8081`/chat?user=`user2`&group=1&token=1234  
 ![chat](images/2.png)
