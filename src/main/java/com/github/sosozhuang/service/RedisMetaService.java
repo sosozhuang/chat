@@ -190,6 +190,7 @@ public class RedisMetaService implements CloseableMetaService {
         // better exec 'exists' and 'getSet' in transaction
         // getSet may return a empty value when set by another client first
         // however it won't cause a bug
+        // todo: execute commands in server side
         if (!jedisCluster.exists(key)) {
             return null;
         }
