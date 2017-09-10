@@ -17,13 +17,13 @@ public final class Configuration {
         this(DEFAULT_CONFIG_FILE);
     }
 
-    public Configuration(Map<String, String> params) {
-        initParams();
+    public Configuration(Map<String, String> params) throws IOException {
+        this();
         this.params.putAll(params);
     }
 
     public Configuration(File file) throws IOException {
-        initParams();
+        this();
         Properties props = new Properties();
         props.load(new BufferedInputStream(new FileInputStream(file)));
         putAll(props);
