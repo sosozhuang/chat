@@ -43,7 +43,7 @@ public interface ServerConfigGetter {
     default public boolean getIdleClose() {
         return getIdleClose(false);
     }
-    public boolean getIdleClose(boolean defauleValue);
+    public boolean getIdleClose(boolean defaultValue);
 
     default public long getIdleTimeout() {
         return getIdleTimeout(0);
@@ -59,4 +59,14 @@ public interface ServerConfigGetter {
         return getStaticFiles(null);
     }
     public String[] getStaticFiles(String[] defaultValues);
+
+    default public boolean getTrafficShaping() {
+        return getTrafficShaping(false);
+    }
+    public boolean getTrafficShaping(boolean defaultValue);
+
+    default public long getTrafficLimit() {
+        return getTrafficLimit(0);
+    }
+    public long getTrafficLimit(long defaultValue);
 }

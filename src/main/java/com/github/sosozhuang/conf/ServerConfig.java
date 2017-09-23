@@ -7,24 +7,12 @@ public class ServerConfig implements ServerConfigGetter {
         this.config = config;
     }
 
-    public String getHost() {
-        return getHost(null);
-    }
-
     public String getHost(String defaultValue) {
         return config.getString("server.host", defaultValue);
     }
 
-    public int getPort() {
-        return getPort(0);
-    }
-
     public int getPort(int defaultValue) {
         return config.getInteger("server.port", defaultValue);
-    }
-
-    public long getId() {
-        return getId(0);
     }
 
     public long getId(long defaultValue) {
@@ -35,61 +23,45 @@ public class ServerConfig implements ServerConfigGetter {
         config.setLong("server.id", id);
     }
 
-    public boolean getSsl() {
-        return getSsl(true);
-    }
-
     public boolean getSsl(boolean defaultValue) {
         return config.getBoolean("server.ssl", defaultValue);
     }
 
-    public String getCert() {
-        return getCert(null);
-    }
     public String getCert(String defaultValue) {
         return config.getString("server.cert", defaultValue);
     }
 
-    public String getKey() {
-        return getKey(null);
-    }
     public String getKey(String defaultValue) {
         return config.getString("server.key", defaultValue);
     }
 
-    public long getExecutorScheduleRate() {
-        return getExecutorScheduleRate(0);
-    }
     public long getExecutorScheduleRate(long defaultValue) {
         return config.getLong("server.executor.schedule_rate", defaultValue);
     }
 
-    public boolean getIdleClose() {
-        return getIdleClose(false);
-    }
-    public boolean getIdleClose(boolean defauleValue) {
-        return config.getBoolean("server.idle.close", defauleValue);
+    public boolean getIdleClose(boolean defaultValue) {
+        return config.getBoolean("server.idle.close", defaultValue);
     }
 
-    public long getIdleTimeout() {
-        return getIdleTimeout(0);
-    }
     public long getIdleTimeout(long defaultValue) {
         return config.getLong("server.idle.timeout", defaultValue);
     }
 
-    public String getWebsocketPath() {
-        return getWebsocketPath(null);
-    }
     public String getWebsocketPath(String defaultValue) {
         return config.getString("server.websocket.path", defaultValue);
     }
 
-    public String[] getStaticFiles() {
-        return getStaticFiles(null);
-    }
     public String[] getStaticFiles(String[] defaultValues) {
         return config.getStringArray("server.static.files", defaultValues);
+    }
+
+    public boolean getTrafficShaping(boolean defaultValue) {
+        return config.getBoolean("server.traffic.shaping", defaultValue);
+    }
+
+    @Override
+    public long getTrafficLimit(long defaultValue) {
+        return config.getLong("server.traffic.limit", defaultValue);
     }
 
     @Override

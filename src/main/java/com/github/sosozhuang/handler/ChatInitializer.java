@@ -15,6 +15,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.handler.traffic.ChannelTrafficShapingHandler;
 import io.netty.util.internal.StringUtil;
 
 import java.io.File;
@@ -56,6 +57,9 @@ public class ChatInitializer extends ChannelInitializer<SocketChannel> {
         if (config.getIdleClose() && config.getIdleTimeout() > 0) {
             p.addLast(new IdleStateHandler(config.getIdleTimeout(), 0, 0, TimeUnit.MINUTES));
             p.addLast(new IdleStateTrigger());
+        }
+        if (config.getTrafficShaping() && config.getTrafficLimit() > 0) {
+            p.addLast(new ChannelTrafficShapingHandler(0, config.getTrafficLimit(), 500, 5000));
         }
         p.addLast(new HttpServerCodec());
         p.addLast(new HttpObjectAggregator(65536));
