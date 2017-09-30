@@ -1,5 +1,6 @@
 package com.github.sosozhuang.service;
 
+import com.github.sosozhuang.conf.ActiveMQConfig;
 import com.github.sosozhuang.conf.Configuration;
 import com.github.sosozhuang.conf.KafkaConfig;
 import com.github.sosozhuang.conf.RedisConfig;
@@ -17,6 +18,9 @@ public class ServiceFactory {
             case "kafka":
                 KafkaConfig kafkaConf = new KafkaConfig(config);
                 return new KafkaMessageService(kafkaConf);
+            case "activemq":
+                ActiveMQConfig activeMQConf = new ActiveMQConfig(config);
+                return new ActiveMQMessageService(activeMQConf);
             default:
                 throw new UnsupportedException("Message service type[" + type + "] is not supported");
         }
