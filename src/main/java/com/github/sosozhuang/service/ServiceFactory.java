@@ -6,9 +6,11 @@ import com.github.sosozhuang.conf.KafkaConfig;
 import com.github.sosozhuang.conf.RedisConfig;
 import io.netty.util.internal.StringUtil;
 
+import javax.jms.JMSException;
+
 public class ServiceFactory {
     private ServiceFactory() {}
-    public static CloseableMessageService createMessageService(Configuration config) throws UnsupportedException {
+    public static CloseableMessageService createMessageService(Configuration config) throws UnsupportedException, ServiceCreatedException {
         String type = config.getString("message.service");
         if (StringUtil.isNullOrEmpty(type)) {
             throw new IllegalArgumentException("Message service type is empty.");
@@ -20,14 +22,18 @@ public class ServiceFactory {
                 return new KafkaMessageService(kafkaConf);
             case "activemq":
                 ActiveMQConfig activeMQConf = new ActiveMQConfig(config);
-                return new ActiveMQMessageService(activeMQConf);
+                try {
+                    return new ActiveMQMessageService(activeMQConf);
+                } catch (JMSException e) {
+                    throw new ServiceCreatedException(e);
+                }
             default:
                 throw new UnsupportedException("Message service type[" + type + "] is not supported");
         }
 
     }
 
-    public static CloseableMetaService createMetaService(Configuration config) throws UnsupportedException {
+    public static CloseableMetaService createMetaService(Configuration config) throws UnsupportedException, ServiceCreatedException {
         String type = config.getString("meta.service");
         if (StringUtil.isNullOrEmpty(type)) {
             throw new IllegalArgumentException("Meta service type is empty.");

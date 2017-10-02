@@ -9,4 +9,7 @@ public class UnsupportedException extends Exception {
     public UnsupportedException(String s) {
         super(s);
     }
+    public UnsupportedException(Throwable cause) {
+        super(cause);
+    }
 }
