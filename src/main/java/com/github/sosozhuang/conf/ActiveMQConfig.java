@@ -31,6 +31,13 @@ public class ActiveMQConfig {
         return config.getString("activemq.conn.broker_url", defaultValue);
     }
 
+    public String getClientID() {
+        return getClientID(null);
+    }
+    public String getClientID(String defaultValue) {
+        return config.getString("activemq.conn.client_id", defaultValue);
+    }
+
     public String getTopicPattern() {
         return getTopicPattern(null);
     }
@@ -45,4 +52,32 @@ public class ActiveMQConfig {
         return config.getInteger("activemq.topic.count", defaultValue);
     }
 
+
+    public int getProducerCommitCount() {
+        return getProducerCommitCount(0);
+    }
+    public int getProducerCommitCount(int defaultValue) {
+        return config.getInteger("activemq.producer.commit_count", defaultValue);
+    }
+
+    public int getProducerCommitInterval() {
+        return getProducerCommitInterval(0);
+    }
+    public int getProducerCommitInterval(int defaultValue) {
+        return config.getInteger("activemq.producer.commit_interval", defaultValue);
+    }
+
+    public int getConsumerCommitCount() {
+        return getConsumerCommitCount(0);
+    }
+    public int getConsumerCommitCount(int defaultValue) {
+        return config.getInteger("activemq.consumer.commit_count", defaultValue);
+    }
+
+    public int getConsumerCommitInterval() {
+        return getConsumerCommitInterval(0);
+    }
+    public int getConsumerCommitInterval(int defaultValue) {
+        return config.getInteger("activemq.consumer.commit_interval", defaultValue);
+    }
 }

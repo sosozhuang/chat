@@ -48,7 +48,7 @@ public class KafkaMessageService implements CloseableMessageService {
             createTopicsIfNotExists();
         }
         producer = new KafkaProducer<>(producerProps);
-        consumers = Collections.synchronizedList(new ArrayList<>(16));
+        consumers = Collections.synchronizedList(new ArrayList<>(8));
         tasks = new ThreadLocal<>();
     }
 
