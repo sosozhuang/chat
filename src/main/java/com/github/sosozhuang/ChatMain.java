@@ -46,6 +46,7 @@ public final class ChatMain {
             server.start();
         } catch (Exception e) {
             LOGGER.error("Unable to start chat service.", e);
+            System.exit(1);
         }
     }
 }
