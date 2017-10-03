@@ -2,8 +2,6 @@ package com.github.sosozhuang.conf;
 
 import org.apache.activemq.ActiveMQConnection;
 
-import javax.jms.ConnectionFactory;
-
 public class ActiveMQConfig {
     private Configuration config;
     public ActiveMQConfig(Configuration config) {
@@ -31,10 +29,10 @@ public class ActiveMQConfig {
         return config.getString("activemq.conn.broker_url", defaultValue);
     }
 
-    public String getClientID() {
-        return getClientID(null);
+    public String getClientIDPrefix() {
+        return getClientIDPrefix(null);
     }
-    public String getClientID(String defaultValue) {
+    public String getClientIDPrefix(String defaultValue) {
         return config.getString("activemq.conn.client_id", defaultValue);
     }
 
