@@ -2,7 +2,9 @@ package com.github.sosozhuang;
 
 import com.github.sosozhuang.conf.Configuration;
 import com.github.sosozhuang.conf.ServerConfig;
-import com.github.sosozhuang.service.*;
+import com.github.sosozhuang.service.CloseableMessageService;
+import com.github.sosozhuang.service.CloseableMetaService;
+import com.github.sosozhuang.service.ServiceFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

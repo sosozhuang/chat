@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -31,13 +30,13 @@ import java.util.stream.IntStream;
 public class KafkaMessageService implements CloseableMessageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaMessageService.class);
     private static final ConsumerRebalanceListener NO_OP_LISTENER = new NoOpConsumerRebalanceListener();
-    private static final Map<Chat.Access, ConsumerTask> TEMP_TASKS = new ConcurrentHashMap<>();
     private KafkaConfig config;
     private Pattern pattern;
     private Properties producerProps;
     private Producer producer;
     private Properties consumerProps;
     private ThreadLocal<ConsumerTask> tasks;
+    private Map<Chat.Access, ConsumerTask> tempTasks;
     private List<Consumer> consumers;
 
     public KafkaMessageService(KafkaConfig config) {
@@ -50,6 +49,7 @@ public class KafkaMessageService implements CloseableMessageService {
         producer = new KafkaProducer<>(producerProps);
         consumers = Collections.synchronizedList(new ArrayList<>(8));
         tasks = new ThreadLocal<>();
+        tempTasks = new ConcurrentHashMap<>();
     }
 
     private void initProps() {
@@ -125,8 +125,8 @@ public class KafkaMessageService implements CloseableMessageService {
     }
 
     @Override
-    public Future<?> send(String user, Chat.Group group, MessageRecord record) {
-        return producer.send(new ProducerRecord<String, byte[]>(getTopic(mapGroupIDToIndex(group.getId())), null, System.currentTimeMillis(), (String) record.getKey(), (byte[]) record.getValue()));
+    public void send(String user, Chat.Group group, MessageRecord record) {
+        producer.send(new ProducerRecord<String, byte[]>(getTopic(mapGroupIDToIndex(group.getId())), null, System.currentTimeMillis(), (String) record.getKey(), (byte[]) record.getValue()));
     }
 
     @Override
@@ -183,13 +183,13 @@ public class KafkaMessageService implements CloseableMessageService {
         builder.setGroupId(group.getId());
         builder.setTimestamp(timestamp);
         Chat.Access access = builder.build();
-        ConsumerTask task = TEMP_TASKS.computeIfAbsent(access, this::newTempTask);
+        ConsumerTask task = tempTasks.computeIfAbsent(access, this::newTempTask);
         try {
             ConsumerRecords<String, byte[]> records = task.pollMessage();
             if (records == null || records.count() == 0) {
                 LOGGER.info("No more message to poll.");
                 task.consumer.close(100, TimeUnit.MILLISECONDS);
-                TEMP_TASKS.remove(access, task);
+                tempTasks.remove(access, task);
                 return Collections.emptyList();
             }
             List<MessageRecord<K, V>> messages = new ArrayList<>(records.count());
@@ -199,7 +199,7 @@ public class KafkaMessageService implements CloseableMessageService {
             return messages;
         } catch (RuntimeException e) {
             task.consumer.close(100, TimeUnit.MILLISECONDS);
-            TEMP_TASKS.remove(access, task);
+            tempTasks.remove(access, task);
             throw e;
         }
     }
@@ -226,7 +226,7 @@ public class KafkaMessageService implements CloseableMessageService {
             }
             consumers = null;
         }
-        TEMP_TASKS.values().forEach(task -> {
+        tempTasks.values().forEach(task -> {
             task.consumer.wakeup();
             task.consumer.close();
         });
