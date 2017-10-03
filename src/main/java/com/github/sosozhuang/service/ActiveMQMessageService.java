@@ -2,110 +2,152 @@ package com.github.sosozhuang.service;
 
 import com.github.sosozhuang.conf.ActiveMQConfig;
 import com.github.sosozhuang.protobuf.Chat;
-import com.sun.istack.internal.NotNull;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.command.ActiveMQBytesMessage;
 import org.apache.activemq.command.ActiveMQTopic;
+import org.apache.activemq.util.ByteArrayOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jms.*;
 import java.io.IOException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.Future;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class ActiveMQMessageService implements CloseableMessageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ActiveMQMessageService.class);
+    private static final String MESSAGE_KEY_PROPERTY = "messageKey";
     private ActiveMQConfig config;
     private ActiveMQConnectionFactory connectionFactory;
+    private Connection connection;
     private List<ActiveMQTopic> topics;
-    private List<ConnectionHolder> holderList;
-    private ThreadLocal<ConnectionHolder> xxs;
+    private List<InternalService> serviceList;
+    private ThreadLocal<InternalService> services;
+    private Map<Chat.Access, InternalTempService> tempServices;
 
     public ActiveMQMessageService(ActiveMQConfig config) throws JMSException {
         this.config = config;
         connectionFactory = new ActiveMQConnectionFactory(config.getUserName(), config.getPassword(), config.getBrokerURL());
-        connectionFactory.setClientID(config.getClientID());
+        connectionFactory.setClientID(config.getClientID("chat"));
         connectionFactory.setUseAsyncSend(true);
-        topics = IntStream.range(0, config.getTopicCount()).mapToObj(this::getTopic).map(name -> {
-            return new ActiveMQTopic(name);
-        }).collect(Collectors.toList());
 
-        holderList = new ArrayList<>(8);
-        xxs = new ThreadLocal<>();
+        connection = connectionFactory.createConnection();
+        connection.setClientID("offline");
+        connection.start();
+
+        topics = IntStream.range(0, config.getTopicCount()).mapToObj(this::createTopic).collect(Collectors.toList());
+        serviceList = new ArrayList<>(8);
+        services = new ThreadLocal<>();
+        tempServices = new ConcurrentHashMap<>();
     }
 
-    private String getTopic(int topic) {
-        return String.format("%s-%d", config.getTopicPattern("chat"), topic);
+    private ActiveMQTopic createTopic(int topic) {
+        return new ActiveMQTopic(String.format("%s-%d", config.getTopicPattern("chat"), topic));
     }
 
     private void rebalance() throws JMSException {
         int size = topics.size();
-        int n = holderList.size();
+        int n = serviceList.size();
         long parts = Math.round(size / (float) n);
-        for (int i = 0; i < n - 1; i++) {
-            holderList.get(i).setTopics(topics.subList((int) (i * parts), (int) ((i + 1) * parts - 1)));
+        if (parts == 0L) {
+            serviceList.get(0).setTopics(topics);
+            return;
         }
-        holderList.get(n - 1).setTopics(topics.subList((int) ((n - 1) * parts), size - 1));
+        for (int i = 0; i < n - 1 && i * parts < size; i++) {
+            serviceList.get(i).setTopics(topics.subList((int) (i * parts), (int) ((i + 1) * parts)));
+        }
+        parts *= n - 1;
+        if (size > parts) {
+            serviceList.get(n - 1).setTopics(topics.subList((int) parts, size));
+        }
     }
 
-    private ConnectionHolder createHolder() {
+    private InternalService createService() {
         try {
-            ConnectionHolder holder = new ConnectionHolder();
-            xxs.set(holder);
+            InternalService service = new InternalService();
+            services.set(service);
             synchronized (this) {
-                holderList.add(holder);
+                serviceList.add(service);
                 rebalance();
             }
-            return holder;
+            return service;
         } catch (JMSException e) {
             throw new RuntimeException(e);
         }
     }
 
+    private static <K, V> MessageRecord<K, V> messageMapper(BytesMessage message) {
+        try {
+            String key = message.getStringProperty(MESSAGE_KEY_PROPERTY);
+            byte[] bytes = new byte[1024];
+            int n = -1;
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            while ((n = message.readBytes(bytes)) != -1) {
+                os.write(bytes, 0, n);
+            }
+            return new MessageRecord(key, os.toByteArray());
+        } catch (JMSException e) {
+            LOGGER.error("Create message record error.", e);
+        }
+        return null;
+    }
+
     @Override
     public <K, V> Iterable<MessageRecord<K, V>> receive() {
-        ConnectionHolder holder = xxs.get();
-        if (holder == null) {
-            holder = createHolder();
+        InternalService service = services.get();
+        if (service == null) {
+            service = createService();
         }
         List<BytesMessage> messages = null;
         try {
-            messages = holder.receive();
+            messages = service.receive();
         } catch (JMSException e) {
             throw new RuntimeException(e);
         }
         if (messages == null || messages.size() == 0) {
             return Collections.emptyList();
         }
-        return messages.stream().map(message -> {
-            try {
-                String key = message.getStringProperty("message.key");
-                byte[] value = new byte[message.getBodyLength()];
-                message.readBytes(value);
-                return new MessageRecord(message.getStringProperty("message.key"), value);
-            } catch (JMSException e) {
-                LOGGER.error("Create message record error.", e);
-            }
-            return null;
-        }).collect(Collectors.toList());
+        return messages.stream().map(message -> (MessageRecord<K, V>) ActiveMQMessageService.messageMapper(message)).filter(Objects::nonNull).collect(Collectors.toList());
+    }
 
-//        List<MessageRecord<K, V>> list = new ArrayList<>(messages.size());
-//        messages.forEach(record -> {
-//            list.add(new MessageRecord(record.key(), record.value()));
-//        });
-//        return messages;
+    private InternalTempService createTempService(Chat.Access access) {
+        try {
+            Session session = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
+            String id = access.getGroupId();
+            String selector = String.format("JMSTimestamp >= %d AND %s = '%s'", access.getTimestamp(), MESSAGE_KEY_PROPERTY, id);
+            TopicSubscriber subscriber = session.createDurableSubscriber(topics.get(mapGroupIDToIndex(id)), id + ":" + access.getUser(), selector, false);
+            return new InternalTempService(session, subscriber);
+        } catch (JMSException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public <K, V> Iterable<MessageRecord<K, V>> receive(String user, Chat.Group group, long timestamp) {
-        return null;
+        Chat.Access.Builder builder = Chat.Access.newBuilder();
+        builder.setUser(user);
+        builder.setGroupId(group.getId());
+        builder.setTimestamp(timestamp);
+        Chat.Access access = builder.build();
+        InternalTempService service = tempServices.computeIfAbsent(access, this::createTempService);
+        List<BytesMessage> messages = null;
+        try {
+            messages = service.receive();
+        } catch (JMSException e) {
+            service.close();
+            tempServices.remove(access, service);
+            throw new RuntimeException(e);
+        }
+        if (messages == null || messages.size() == 0) {
+            LOGGER.info("No more message to poll.");
+            service.close();
+            tempServices.remove(access, service);
+            return Collections.emptyList();
+        }
+
+        return messages.stream().map(message -> (MessageRecord<K, V>) ActiveMQMessageService.messageMapper(message)).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
     private int mapGroupIDToIndex(String groupID) {
@@ -113,50 +155,37 @@ public class ActiveMQMessageService implements CloseableMessageService {
     }
 
     @Override
-    public Future<?> send(String user, Chat.Group group, MessageRecord record) {
-        ConnectionHolder connectionHolder = xxs.get();
-        if (connectionHolder == null) {
-            connectionHolder = createHolder();
+    public void send(String user, Chat.Group group, MessageRecord record) {
+        InternalService service = services.get();
+        if (service == null) {
+            service = createService();
         }
         ActiveMQBytesMessage message = new ActiveMQBytesMessage();
         try {
-            message.setStringProperty("message.key", (String) record.getKey());
+            message.setJMSTimestamp(System.currentTimeMillis());
+            message.setStringProperty(MESSAGE_KEY_PROPERTY, (String) record.getKey());
             message.writeBytes((byte[]) record.getValue());
-            connectionHolder.send(topics.get(mapGroupIDToIndex(group.getId())), message);
+            service.send(topics.get(mapGroupIDToIndex(group.getId())), message);
         } catch (JMSException e) {
             throw new RuntimeException(e);
         }
-        return null;
     }
 
     @Override
     public void close() throws IOException {
-        if (holderList != null) {
-            holderList.forEach(holder -> holder.close());
-            holderList = null;
+        if (serviceList != null) {
+            serviceList.forEach(service -> service.close());
+            serviceList = null;
         }
-//        if (connection != null) {
-//            try {
-//                connection.close();
-//            } catch (JMSException e) {
-//                LOGGER.error("Close activemq connection error.", e);
-//            } finally {
-//                connection = null;
-//            }
-//        }
-//        if (session != null) {
-//            try {
-//                session.commit();
-//                session.close();
-//            } catch (JMSException e) {
-//                LOGGER.error("Close activemq session error.", e);
-//            } finally {
-//                session = null;
-//            }
-//        }
+        tempServices.values().forEach(service -> service.close());
+        try {
+            connection.close();
+        } catch (JMSException e) {
+            LOGGER.error("Close activemq connection error.", e);
+        }
     }
 
-    private class ConnectionHolder {
+    private class InternalService {
         Connection connection;
         Session producerSession;
         MessageProducer producer;
@@ -174,13 +203,14 @@ public class ActiveMQMessageService implements CloseableMessageService {
         int receivedCount;
         long consumerLastCommit;
 
-        ConnectionHolder() throws JMSException {
+        InternalService() throws JMSException {
             connection = connectionFactory.createConnection();
             connection.start();
             producerSession = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
             producer = producerSession.createProducer(null);
             producer.setDeliveryMode(DeliveryMode.PERSISTENT);
             producer.setDisableMessageID(true);
+            producer.setDisableMessageTimestamp(true);
 
             producerCommitCount = config.getProducerCommitCount();
             producerCommitInterval = config.getProducerCommitInterval();
@@ -188,13 +218,13 @@ public class ActiveMQMessageService implements CloseableMessageService {
             consumerCommitInterval = config.getConsumerCommitInterval();
 
             sentCount = receivedCount = 0;
-            producerLastCommit = consumerLastCommit = Instant.now().toEpochMilli();
+            producerLastCommit = consumerLastCommit = System.currentTimeMillis();
         }
 
         void send(Destination destination, Message message) throws JMSException {
             producer.send(destination, message);
             sentCount++;
-            long now = Instant.now().toEpochMilli();
+            long now = System.currentTimeMillis();
             if (sentCount > producerCommitCount || now - producerLastCommit >= producerCommitInterval) {
                 producerSession.commit();
                 sentCount = 0;
@@ -215,7 +245,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
                     receivedCount++;
                 }
             }
-            long now = Instant.now().toEpochMilli();
+            long now = System.currentTimeMillis();
             if (receivedCount > consumerCommitCount || now - consumerLastCommit >= consumerCommitInterval) {
                 for (Session session : subscriberSessions) {
                     session.commit();
@@ -226,7 +256,8 @@ public class ActiveMQMessageService implements CloseableMessageService {
             return messages;
         }
 
-        void setTopics(@NotNull List<ActiveMQTopic> topics) throws JMSException {
+        void setTopics(List<ActiveMQTopic> topics) throws JMSException {
+            Objects.requireNonNull(topics);
             this.topics = topics;
             if (subscribers != null) {
                 for (TopicSubscriber subscriber : subscribers) {
@@ -242,7 +273,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
             subscribers = new TopicSubscriber[size];
             subscriberSessions = new Session[size];
             receivedCount = 0;
-            consumerLastCommit = Instant.now().toEpochMilli();
+            consumerLastCommit = System.currentTimeMillis();
             int i = 0;
             for (ActiveMQTopic topic : topics) {
                 Session session = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
@@ -251,9 +282,6 @@ public class ActiveMQMessageService implements CloseableMessageService {
                 i++;
             }
         }
-//        void setSubscribers(@NotNull List<TopicSubscriber> subscribers) {
-//            this.subscribers = subscribers;
-//        }
 
         void close() {
             if (producer != null) {
@@ -283,6 +311,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
             if (subscriberSessions != null) {
                 for (Session session : subscriberSessions) {
                     try {
+                        session.commit();
                         session.close();
                     } catch (JMSException e) {
                         LOGGER.error("Close activemq subscriber session error.", e);
@@ -298,5 +327,43 @@ public class ActiveMQMessageService implements CloseableMessageService {
             }
         }
 
+    }
+
+    private static class InternalTempService {
+
+        final Session session;
+        final TopicSubscriber subscriber;
+
+        InternalTempService(Session session, TopicSubscriber subscriber) {
+            this.session = session;
+            this.subscriber = subscriber;
+        }
+
+        List<BytesMessage> receive() throws JMSException {
+            List<BytesMessage> messages = new ArrayList<>((int) (100 * .6));
+            BytesMessage message = null;
+            for (int i = 0; i < 100; i++) {
+                message = (BytesMessage) subscriber.receiveNoWait();
+                if (message == null) {
+                    break;
+                }
+                messages.add(message);
+            }
+            return messages;
+        }
+
+        void close() {
+            try {
+                subscriber.close();
+            } catch (JMSException e) {
+                LOGGER.error("Close activemq subscriber error.", e);
+            }
+            try {
+                session.commit();
+                session.close();
+            } catch (JMSException e) {
+                LOGGER.error("Close activemq subscriber session error.", e);
+            }
+        }
     }
 }

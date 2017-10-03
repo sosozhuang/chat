@@ -151,7 +151,7 @@ public class KafkaMessageService implements CloseableMessageService {
         return messages;
     }
 
-    private ConsumerTask newTempTask(Chat.Access access) {
+    private ConsumerTask createTempTask(Chat.Access access) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getServers("localhost:9092"));
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
@@ -183,7 +183,7 @@ public class KafkaMessageService implements CloseableMessageService {
         builder.setGroupId(group.getId());
         builder.setTimestamp(timestamp);
         Chat.Access access = builder.build();
-        ConsumerTask task = tempTasks.computeIfAbsent(access, this::newTempTask);
+        ConsumerTask task = tempTasks.computeIfAbsent(access, this::createTempTask);
         try {
             ConsumerRecords<String, byte[]> records = task.pollMessage();
             if (records == null || records.count() == 0) {

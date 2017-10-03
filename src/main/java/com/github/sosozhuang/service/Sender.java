@@ -5,5 +5,5 @@ import com.github.sosozhuang.protobuf.Chat;
 import java.util.concurrent.Future;
 
 public interface Sender {
-    public Future<?> send(String user, Chat.Group group, MessageRecord record);
+    public void send(String user, Chat.Group group, MessageRecord record);
 }
