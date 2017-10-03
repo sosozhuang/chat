@@ -13,6 +13,7 @@ import javax.jms.*;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -30,11 +31,10 @@ public class ActiveMQMessageService implements CloseableMessageService {
     public ActiveMQMessageService(ActiveMQConfig config) throws JMSException {
         this.config = config;
         connectionFactory = new ActiveMQConnectionFactory(config.getUserName(), config.getPassword(), config.getBrokerURL());
-        connectionFactory.setClientID(config.getClientID("chat"));
         connectionFactory.setUseAsyncSend(true);
 
         connection = connectionFactory.createConnection();
-        connection.setClientID("offline");
+        connection.setClientID(config.getClientIDPrefix("chat") + "-offline");
         connection.start();
 
         topics = IntStream.range(0, config.getTopicCount()).mapToObj(this::createTopic).collect(Collectors.toList());
@@ -116,9 +116,9 @@ public class ActiveMQMessageService implements CloseableMessageService {
         try {
             Session session = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
             String id = access.getGroupId();
-            String selector = String.format("JMSTimestamp >= %d AND %s = '%s'", access.getTimestamp(), MESSAGE_KEY_PROPERTY, id);
+            String selector = String.format("%s = '%s'", MESSAGE_KEY_PROPERTY, id);
             TopicSubscriber subscriber = session.createDurableSubscriber(topics.get(mapGroupIDToIndex(id)), id + ":" + access.getUser(), selector, false);
-            return new InternalTempService(session, subscriber);
+            return new InternalTempService(access.getTimestamp(), session, subscriber);
         } catch (JMSException e) {
             throw new RuntimeException(e);
         }
@@ -185,6 +185,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
         }
     }
 
+    private static final AtomicInteger GENERATOR = new AtomicInteger();
     private class InternalService {
         Connection connection;
         Session producerSession;
@@ -205,6 +206,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
 
         InternalService() throws JMSException {
             connection = connectionFactory.createConnection();
+            connection.setClientID(config.getClientIDPrefix("chat") + "-" + GENERATOR.getAndIncrement());
             connection.start();
             producerSession = connection.createSession(true, Session.AUTO_ACKNOWLEDGE);
             producer = producerSession.createProducer(null);
@@ -232,7 +234,16 @@ public class ActiveMQMessageService implements CloseableMessageService {
             }
         }
 
-        List<BytesMessage> receive() throws JMSException {
+        synchronized List<BytesMessage> receive() throws JMSException {
+            long now = System.currentTimeMillis();
+            if (now - producerLastCommit >= producerCommitInterval) {
+                producerSession.commit();
+                sentCount = 0;
+                producerLastCommit = now;
+            }
+            if (subscribers == null) {
+                return null;
+            }
             List<BytesMessage> messages = new ArrayList<>((int) (100 * .6) * subscribers.length);
             BytesMessage message = null;
             for (TopicSubscriber subscriber : subscribers) {
@@ -245,7 +256,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
                     receivedCount++;
                 }
             }
-            long now = System.currentTimeMillis();
+            now = System.currentTimeMillis();
             if (receivedCount > consumerCommitCount || now - consumerLastCommit >= consumerCommitInterval) {
                 for (Session session : subscriberSessions) {
                     session.commit();
@@ -256,7 +267,7 @@ public class ActiveMQMessageService implements CloseableMessageService {
             return messages;
         }
 
-        void setTopics(List<ActiveMQTopic> topics) throws JMSException {
+        synchronized void setTopics(List<ActiveMQTopic> topics) throws JMSException {
             Objects.requireNonNull(topics);
             this.topics = topics;
             if (subscribers != null) {
@@ -333,8 +344,10 @@ public class ActiveMQMessageService implements CloseableMessageService {
 
         final Session session;
         final TopicSubscriber subscriber;
+        final long timestamp;
 
-        InternalTempService(Session session, TopicSubscriber subscriber) {
+        InternalTempService(long timestamp, Session session, TopicSubscriber subscriber) {
+            this.timestamp = timestamp;
             this.session = session;
             this.subscriber = subscriber;
         }
@@ -346,6 +359,9 @@ public class ActiveMQMessageService implements CloseableMessageService {
                 message = (BytesMessage) subscriber.receiveNoWait();
                 if (message == null) {
                     break;
+                }
+                if (message.getJMSTimestamp() < timestamp) {
+                    continue;
                 }
                 messages.add(message);
             }
