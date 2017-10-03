@@ -51,7 +51,7 @@ if (window.WebSocket) {
   };
   socket.onopen = function(event) {
     var ta = document.getElementById('responseText');
-    ta.value = "===== A Netty+Kafka+Redis chat service. =====";
+    ta.value = "===== A Netty+Kafka/ActiveMQ+Redis chat service. =====";
     var token = getCookie('access-token');
     if (token) {
         send(token, false);

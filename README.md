@@ -1,11 +1,11 @@
 # Chat
-A simple scalable chat service, based on [netty](http://netty.io), [kafka](http://kafka.apache.org/) and [redis](https://redis.io/).
+A simple scalable chat service, based on [netty](http://netty.io), [kafka](http://kafka.apache.org/)/[ActiveMQ](http://activemq.apache.org/) and [redis](https://redis.io/).
 ## Build
 * [Maven](http://maven.apache.org/)
 * [JDK 8](http://www.orScalableacle.com/technetwork/java/).
 ## Dependencies
 * zookeeper 3.4.10
-* kafka 2.11-0.11 
+* kafka 2.11-0.11 or activemq 5.14.5
 * redis 4.0
 ## Running chat server
 First compile the project and package into a tar ball.
